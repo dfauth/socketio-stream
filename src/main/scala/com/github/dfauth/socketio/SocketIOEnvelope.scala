@@ -10,8 +10,8 @@ case object Error extends MessageType(4)
 case object BinaryEvent extends MessageType(5)
 case object BinaryAck extends MessageType(6)
 
-case class Envelope(messageType:MessageType, data:Option[Packet] = None) {
+case class SocketIOEnvelope(messageType:MessageType, data:Option[SocketIOPacket] = None) {
 
 }
 
-case class Packet()
+case class SocketIOPacket()

@@ -31,6 +31,7 @@ val testNG = "org.testng" % "testng" % "6.14.3" % Test
 val tyrus = "org.glassfish.tyrus.bundles" % "tyrus-standalone-client-jdk" % "1.12" % Test
 val playSocketIo = "com.lightbend.play" %% "play-socket-io" % "1.0.0-beta-2"
 val guice = "com.google.inject" % "guice" % "4.2.2"
+val socketioClient = "io.socket" % "socket.io-client" % "1.0.0" % Test
 
 
 val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging, logback)
@@ -54,6 +55,7 @@ lazy val root = (project in file("."))
 //      testNG,
 //      tyrus,
 //      akkaHttpTestKit,
+      socketioClient
       )
   )
   .enablePlugins(AssemblyPlugin)

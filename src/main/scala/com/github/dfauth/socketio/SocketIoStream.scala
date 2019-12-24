@@ -1,16 +1,22 @@
 package com.github.dfauth.socketio
 
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
+import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives.{path, _}
 import akka.http.scaladsl.server.Route
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.ByteString
-import com.github.dfauth.engineio.{Packets, Polling, Transport, Websocket, Envelope => EngineIOEnvelope}
+import com.github.dfauth.engineio.{EngineIOEnvelope, EngineIOPackets, EngineIOTransport, Polling, Websocket}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+
+import scala.concurrent.duration.FiniteDuration
 
 class SocketIoStream(system: ActorSystem) extends LazyLogging {
 
@@ -30,10 +36,29 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
     token.filter(t => validateToken(t)).map(t=>
       r(t)
     ).getOrElse {
-      complete(HttpResponse(StatusCodes.Unauthorized))
+      // try a query parameter
+      parameters('sid) { token =>
+        if(validateToken(token)) {
+          r(token)
+        } else {
+          complete(HttpResponse(StatusCodes.Unauthorized))
+        }
+      }
     }
   }
 
+
+//  def probe: BinaryMessage.Strict => BinaryMessage.Strict = (a:BinaryMessage.Strict) => {
+//    val src = a.data.map(b => )
+//  }
+
+  def probe: Message => Message = a => {
+    a match {
+      case TextMessage.Strict(b) => logger.info(s"bytes: ${b}")
+      case x => logger.info(s"x: ${x}")
+    }
+    TextMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat(Some("probe"))).toString)
+  }
 
   def subscribe = {
     path("socket.io" / ) { concat(
@@ -41,28 +66,18 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
       get {
         tokenAuth { token =>
           val sid = token
-          parameters('transport, 't, 'EIO) {
-            (transport, requestId, eio) =>
-              Transport.valueOf(transport) match {
+          parameters('transport, 'EIO) {
+            (transport, eio) =>
+              EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
-                  logger.info("WOOZ websocket")
-                  //        try {
-                  //          handleWebSocketMessages(
-                  //            Flow.fromSinkAndSource(Sink.fromSubscriber(controller),
-                  //              Source.fromPublisher(controller))
-                  //              .keepAlive(5.seconds, () => TextMessage.Strict(new String(new PingMessage(ByteBuffer.wrap("ping".getBytes)).getPayload.array())))
-                  //          )
-                  //        } catch {
-                  //          case t:Throwable => logger.error(t.getMessage, t)
-                  //            throw t
-                  //        }
-                  complete("ok")
+                  handleWebSocketMessages(
+                    Flow.fromFunction(probe)
+                      //.keepAlive(FiniteDuration(config.pingInterval.get(ChronoUnit.SECONDS),TimeUnit.SECONDS), () => BinaryMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat()).toByteString))
+                  )
                 }
                 case activeTransport@Polling => {
-                  logger.info(s"WOOZ polling ${requestId} ${eio} ${token}")
-//                  val packets:Packets = Packets(EngineIOEnvelope.open(sid, config, activeTransport), EngineIOEnvelope.message(Envelope(Open)))
-                  val packets:Packets = Packets(EngineIOEnvelope.open(sid, config, activeTransport))
-                  complete(octetStream(Source.single(packets.toByteString)))
+                  val packets:EngineIOPackets = EngineIOPackets(EngineIOEnvelope.open(sid, config, activeTransport))
+                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(packets.toByteString, 2000))))
                 }
               }
           }
@@ -73,7 +88,7 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
           val sid = token
           parameters('transport, 't, 'EIO) {
             (transport, requestId, eio) =>
-              Transport.valueOf(transport) match {
+              EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
                   logger.info("WOOZ websocket")
                   //        try {
