@@ -12,7 +12,7 @@ import akka.http.scaladsl.server.Directives.{path, _}
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.ByteString
-import com.github.dfauth.engineio.{EngineIOEnvelope, EngineIOPackets, EngineIOTransport, Polling, Websocket}
+import com.github.dfauth.engineio._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
@@ -70,8 +70,19 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
             (transport, eio) =>
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
-                  handleWebSocketMessages(
-                    Flow.fromFunction(probe)
+                  handleWebSocketMessages({
+                    val processor = new HandshakeProcessor[Message, Message](probe, (_,_) => true)
+                    val handshakeSink:Sink[Message, NotUsed] = Sink.fromSubscriber(processor)
+                    val handshakeSrc:Source[Message, NotUsed] = Source.fromPublisher(processor)
+                    val handshakeFlow:Flow[Message, Message, NotUsed] = Flow.fromProcessor(() => processor)
+                    val nested = Flow.fromSinkAndSource(Sink.ignore, Source.empty)
+                    .keepAlive(FiniteDuration(config.pingInterval.get(ChronoUnit.SECONDS),TimeUnit.SECONDS), () => BinaryMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat()).toByteString))
+                    val oneSec = FiniteDuration(1,TimeUnit.SECONDS)
+                    val concatSrc:Source[Message, NotUsed] = Source.empty[Message].flatMapConcat(_ => handshakeSrc).flatMapConcat(_ => Source.tick(oneSec, oneSec,TextMessage.Strict("blah")))
+//                    Flow.fromSinkAndSource(handshakeSink, concatSrc)
+                    handshakeFlow
+                  }
+                    // val nested = Flow.fromFunction(probe)
                       //.keepAlive(FiniteDuration(config.pingInterval.get(ChronoUnit.SECONDS),TimeUnit.SECONDS), () => BinaryMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat()).toByteString))
                   )
                 }

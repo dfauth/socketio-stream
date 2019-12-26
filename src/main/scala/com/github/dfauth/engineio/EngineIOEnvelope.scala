@@ -2,14 +2,11 @@ package com.github.dfauth.engineio
 
 import java.nio.charset.Charset
 import java.time.temporal.ChronoUnit
-import java.util.UUID
 
-import akka.dispatch
-import akka.dispatch.Envelope
 import akka.util.ByteString
 import com.github.dfauth.engineio.EngineIOEnvelope.MessageType
 import com.github.dfauth.socketio
-import com.github.dfauth.socketio.{SocketIOConfig, SocketIOPacket}
+import com.github.dfauth.socketio.SocketIOConfig
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
@@ -20,6 +17,8 @@ object EngineIOEnvelope {
   val UTF8 = Charset.forName("UTF-8")
 
   sealed class MessageType(value:Int) {
+    def getValue = value
+
     def toByte: Byte = (value + 48).toByte
   }
 
@@ -74,9 +73,7 @@ case class EngineIOEnvelope(messageType:MessageType, data:Option[EngineIOPacket]
   override def toString: String = {
     val payload:String = data.map(_.toString).getOrElse(new String())
     val buffer = new StringBuffer()
-    buffer.append(payload.length+1)
-    buffer.append(":")
-    buffer.append(messageType)
+    buffer.append(messageType.getValue)
     buffer.append(payload)
     buffer.toString
   }
@@ -93,6 +90,7 @@ case class EngineIOSessionInitPacket(sid:String, upgrades:Array[String], pingInt
 
 case class EngineIOStringPacket(message:String) extends EngineIOPacket {
   def toBytes: Array[Byte] = message.getBytes(EngineIOEnvelope.UTF8)
+  override def toString:String = message
 }
 
 case class EngineIOPackets(packets:EngineIOEnvelope*) {
