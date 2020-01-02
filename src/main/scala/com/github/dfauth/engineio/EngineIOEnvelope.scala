@@ -1,40 +1,76 @@
 package com.github.dfauth.engineio
 
+import java.awt.TrayIcon.MessageType
 import java.nio.charset.Charset
 import java.time.temporal.ChronoUnit
 
 import akka.util.ByteString
-import com.github.dfauth.engineio.EngineIOEnvelope.MessageType
 import com.github.dfauth.socketio
-import com.github.dfauth.socketio.SocketIOConfig
+import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
 import scala.collection.mutable.ArrayBuffer
 
-object EngineIOEnvelope {
+object EngineIOEnvelope extends LazyLogging {
+
+  def fromBytes(b: Array[Byte]):Option[EngineIOEnvelope] = {
+    b match {
+      case Array(x) => {
+        val msgType = MessageType.fromByte(x)
+        Some(EngineIOEnvelope(msgType))
+      }
+      case Array(x, _*) => {
+        val msgType = MessageType.fromByte(x)
+        val payload = msgType.payload(b.slice(1, b.length))
+        Some(EngineIOEnvelope(msgType, payload))
+      }
+      case _ => {
+        logger.error("Unexpected empty byte array")
+        None
+      }
+    }
+  }
 
   val UTF8 = Charset.forName("UTF-8")
 
-  sealed class MessageType(value:Int) {
-    def getValue = value
+  def open(sid:String, config:SocketIOConfig, activeTransport:EngineIOTransport):EngineIOEnvelope = EngineIOEnvelope(Open, Some(EngineIOSessionInitPacket(sid, config.transportsFiltering(activeTransport), config.pingInterval.get(ChronoUnit.SECONDS)*1000, config.pingTimeout.get(ChronoUnit.SECONDS)*1000)))
+  def connect(message:String):EngineIOEnvelope = EngineIOEnvelope(Message, socketioPacket = Some(SocketIOEnvelope.connect(message)))
+  def heartbeat(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Pong, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Pong))
+  def error(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Error, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Error))
+}
 
-    def toByte: Byte = (value + 48).toByte
+object MessageType {
+  def fromByte(b: Byte) = (b.toInt - 48 )  match {
+    case 0 => Open
+    case 1 => Close
+    case 2 => Ping
+    case 3 => Pong
+    case 4 => Message
+    case 5 => Upgrade
+    case 6 => Noop
+    case 7 => Error
   }
 
-  case object Open extends MessageType(0)
-  case object Close extends MessageType(1)
-  case object Ping extends MessageType(2)
-  case object Pong extends MessageType(3)
-  case object Message extends MessageType(4)
-  case object Upgrade extends MessageType(5)
-  case object Noop extends MessageType(6)
-  case object Error extends MessageType(7)
-
-  def open(sid:String, config:SocketIOConfig, activeTransport:EngineIOTransport):EngineIOEnvelope = EngineIOEnvelope(Open, Some(EngineIOSessionInitPacket(sid, config.transportsFiltering(activeTransport), config.pingInterval.get(ChronoUnit.SECONDS)*1000, config.pingTimeout.get(ChronoUnit.SECONDS)*1000)))
-  def message(envelope: socketio.SocketIOEnvelope):EngineIOEnvelope = EngineIOEnvelope(Message, socketioPacket = Some(envelope))
-  def heartbeat(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Pong, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Pong))
 }
+
+sealed class MessageType(value:Int) {
+  def getValue = value
+  def payload(b:Array[Byte]):Option[EngineIOPacket] = None
+  def toByte: Byte = (value + 48).toByte
+}
+
+case object Open extends MessageType(0)
+case object Close extends MessageType(1)
+case object Ping extends MessageType(2) {
+  override def payload(b:Array[Byte]):Option[EngineIOPacket] = Some(EngineIOStringPacket((b.map(_.toChar)).mkString))
+}
+case object Pong extends MessageType(3)
+case object Message extends MessageType(4)
+case object Upgrade extends MessageType(5)
+case object Noop extends MessageType(6)
+case object Error extends MessageType(7)
+
 
 
 case class EngineIOEnvelope(messageType:MessageType, data:Option[EngineIOPacket] = None, socketioPacket:Option[socketio.SocketIOEnvelope] = None) extends LazyLogging {
@@ -67,6 +103,9 @@ case class EngineIOEnvelope(messageType:MessageType, data:Option[EngineIOPacket]
     bytes.append(0xff.toByte)
     bytes.append(messageType.toByte)
     bytes.appendAll(payload)
+    socketioPacket.map { p =>
+      bytes.appendAll(p.toByteString)
+    }
     ByteString(bytes.toArray)
   }
 
@@ -86,6 +125,11 @@ trait EngineIOPacket {
 
 case class EngineIOSessionInitPacket(sid:String, upgrades:Array[String], pingInterval:Long, pingTimeout:Long) extends EngineIOPacket {
   def toBytes: Array[Byte] = EngineIO.packetFormat.write(this).toString().getBytes(EngineIOEnvelope.UTF8)
+}
+
+case class EngineIOEmptyPacket() extends EngineIOPacket {
+  def toBytes: Array[Byte] = Array.emptyByteArray
+  override def toString:String = new String
 }
 
 case class EngineIOStringPacket(message:String) extends EngineIOPacket {

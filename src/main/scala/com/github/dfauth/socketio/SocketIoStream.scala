@@ -16,7 +16,9 @@ import com.github.dfauth.engineio._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class SocketIoStream(system: ActorSystem) extends LazyLogging {
 
@@ -48,16 +50,30 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
   }
 
 
-//  def probe: BinaryMessage.Strict => BinaryMessage.Strict = (a:BinaryMessage.Strict) => {
-//    val src = a.data.map(b => )
-//  }
-
-  def probe: Message => Message = a => {
+  def unwrap: Message => Future[EngineIOEnvelope] = a => Future {
     a match {
-      case TextMessage.Strict(b) => logger.info(s"bytes: ${b}")
-      case x => logger.info(s"x: ${x}")
+      case TextMessage.Strict(b) => {
+        val env = EngineIOEnvelope.fromBytes(b.getBytes)
+        logger.info(s"bytes: ${b}, envelope: ${env}")
+        env.getOrElse(throw new IllegalArgumentException(s"Invalid message format: ${b}"))
+      }
+      case x => throw new IllegalArgumentException(s"Unexpected message: ${x}")
     }
-    TextMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat(Some("probe"))).toString)
+  }
+
+  def probe: EngineIOEnvelope => Option[EngineIOEnvelope] = {
+    case EngineIOEnvelope(msgType, None,  _) => {
+      msgType match {
+        case Ping => Some(EngineIOEnvelope.heartbeat())
+        case Upgrade => None // ignore
+      }
+
+    }
+    case EngineIOEnvelope(msgType, data,  _) => {
+      (msgType, data) match {
+        case (Ping, Some(EngineIOStringPacket(m))) => Some(EngineIOEnvelope.heartbeat(Some(m)))
+      }
+    }
   }
 
   def subscribe = {
@@ -65,29 +81,36 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
 
       get {
         tokenAuth { token =>
-          val sid = token
-          parameters('transport, 'EIO) {
-            (transport, eio) =>
+          parameters('transport, 'EIO, 'sid.?) {
+            (transport, eio, sid) =>
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
                   handleWebSocketMessages({
-                    val processor = new HandshakeProcessor[Message, Message](probe, (_,_) => true)
+                    val tmp:Message => Future[Option[Message]] = (m:Message) => unwrap(m)
+                      .map { e => {
+                        probe(e).map(v => TextMessage.Strict(v.toString))
+                      }
+//                      .failed.map { t => {
+//                          logger.error(t.getMessage, t)
+//                          TextMessage.Strict(EngineIOEnvelope.error(Some(t.getMessage)).toString)
+//                        }
+                    }
+                    val processor = new HandshakeProcessor[Message, Message](tmp, (_,_) => true)
                     val handshakeSink:Sink[Message, NotUsed] = Sink.fromSubscriber(processor)
                     val handshakeSrc:Source[Message, NotUsed] = Source.fromPublisher(processor)
                     val handshakeFlow:Flow[Message, Message, NotUsed] = Flow.fromProcessor(() => processor)
+                    val heartbeat = TextMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat()).toString)
+                    val heartbeatInterval = FiniteDuration(config.pingInterval.get(ChronoUnit.SECONDS),TimeUnit.SECONDS)
                     val nested = Flow.fromSinkAndSource(Sink.ignore, Source.empty)
-                    .keepAlive(FiniteDuration(config.pingInterval.get(ChronoUnit.SECONDS),TimeUnit.SECONDS), () => BinaryMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat()).toByteString))
-                    val oneSec = FiniteDuration(1,TimeUnit.SECONDS)
-                    val concatSrc:Source[Message, NotUsed] = Source.empty[Message].flatMapConcat(_ => handshakeSrc).flatMapConcat(_ => Source.tick(oneSec, oneSec,TextMessage.Strict("blah")))
+                    .keepAlive(heartbeatInterval, () => heartbeat)
+                    val concatSrc:Source[Message, NotUsed] = Source.empty[Message].flatMapConcat(_ => handshakeSrc).flatMapConcat(_ => Source.tick(heartbeatInterval, heartbeatInterval,heartbeat))
 //                    Flow.fromSinkAndSource(handshakeSink, concatSrc)
                     handshakeFlow
                   }
-                    // val nested = Flow.fromFunction(probe)
-                      //.keepAlive(FiniteDuration(config.pingInterval.get(ChronoUnit.SECONDS),TimeUnit.SECONDS), () => BinaryMessage.Strict(EngineIOPackets(EngineIOEnvelope.heartbeat()).toByteString))
                   )
                 }
                 case activeTransport@Polling => {
-                  val packets:EngineIOPackets = EngineIOPackets(EngineIOEnvelope.open(sid, config, activeTransport))
+                  val packets:EngineIOPackets = sid.map { _ => EngineIOPackets(EngineIOEnvelope.connect("/chat")) }.getOrElse { EngineIOPackets(EngineIOEnvelope.open(token, config, activeTransport))}
                   complete(octetStream(Source.fromPublisher(DelayedClosePublisher(packets.toByteString, 2000))))
                 }
               }
@@ -96,26 +119,16 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
       },
       post {
         tokenAuth { token =>
-          val sid = token
           parameters('transport, 't, 'EIO) {
             (transport, requestId, eio) =>
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
-                  logger.info("WOOZ websocket")
-                  //        try {
-                  //          handleWebSocketMessages(
-                  //            Flow.fromSinkAndSource(Sink.fromSubscriber(controller),
-                  //              Source.fromPublisher(controller))
-                  //              .keepAlive(5.seconds, () => TextMessage.Strict(new String(new PingMessage(ByteBuffer.wrap("ping".getBytes)).getPayload.array())))
-                  //          )
-                  //        } catch {
-                  //          case t:Throwable => logger.error(t.getMessage, t)
-                  //            throw t
-                  //        }
-                  complete(HttpResponse(StatusCodes.OK))
+                  // shouldnt happen
+                  logger.info("Unexpected websocket transport with POST message")
+                  complete(HttpResponse(StatusCodes.InternalServerError))
                 }
                 case activeTransport@Polling => {
-                  logger.info(s"WOOZ polling ${requestId} ${eio} ${token}")
+                  logger.info(s"POST polling ${requestId} ${eio} ${token}")
                   complete(HttpResponse(StatusCodes.OK))
                 }
               }

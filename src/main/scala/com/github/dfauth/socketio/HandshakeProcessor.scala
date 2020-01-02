@@ -3,7 +3,11 @@ package com.github.dfauth.socketio
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.{Processor, Subscriber, Subscription}
 
-class HandshakeProcessor[I, O](handshake: I => O, completionLogic:(I,O) => Boolean) extends Processor[I, O] with LazyLogging {
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
+
+class HandshakeProcessor[I, O](handshake: I => Future[Option[O]], completionLogic:(I,O) => Boolean) extends Processor[I, O] with LazyLogging {
 
   var subscriber:Option[Subscriber[_ >: O]] = None
   var subscription:Option[Subscription] = None
@@ -17,9 +21,17 @@ class HandshakeProcessor[I, O](handshake: I => O, completionLogic:(I,O) => Boole
   override def onNext(t: I): Unit = {
     // first message is the handshake
     subscriber.map(i => {
-      val o = handshake(t)
-      logger.info(s"onNext: ${i} => ${o}")
-      i.onNext(o)
+      handshake(t).onComplete {
+        case Success(None) => // ignore
+        case Success(Some(o)) => {
+          logger.info(s"onNext: ${i} => ${o}")
+          i.onNext(o)
+        }
+        case Failure(t) => {
+          logger.error(s"failure in onNext: ${i} => ${t}")
+          i.onError(t)
+        }
+      }
 //      if(completionLogic((i,o))) {
 //        onComplete()
 //      }
