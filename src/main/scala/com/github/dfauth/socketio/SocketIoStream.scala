@@ -62,14 +62,14 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
   }
 
   def probe: EngineIOEnvelope => Option[EngineIOEnvelope] = {
-    case EngineIOEnvelope(msgType, None,  _) => {
+    case EngineIOEnvelope(msgType, None) => {
       msgType match {
         case Ping => Some(EngineIOEnvelope.heartbeat())
         case Upgrade => None // ignore
       }
 
     }
-    case EngineIOEnvelope(msgType, data,  _) => {
+    case EngineIOEnvelope(msgType, data) => {
       (msgType, data) match {
         case (Ping, Some(EngineIOStringPacket(m))) => Some(EngineIOEnvelope.heartbeat(Some(m)))
       }
@@ -111,7 +111,7 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
                 }
                 case activeTransport@Polling => {
                   val packets:EngineIOPackets = sid.map { _ => EngineIOPackets(EngineIOEnvelope.connect("/chat")) }.getOrElse { EngineIOPackets(EngineIOEnvelope.open(token, config, activeTransport))}
-                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(packets.toByteString, 2000))))
+                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(ByteString(packets.toBytes), 2000))))
                 }
               }
           }

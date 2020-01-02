@@ -1,10 +1,10 @@
 package com.github.dfauth.engineio
 
-import java.awt.TrayIcon.MessageType
 import java.nio.charset.Charset
 import java.time.temporal.ChronoUnit
 
 import akka.util.ByteString
+import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
 import com.github.dfauth.socketio
 import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope}
 import com.typesafe.scalalogging.LazyLogging
@@ -35,7 +35,7 @@ object EngineIOEnvelope extends LazyLogging {
   val UTF8 = Charset.forName("UTF-8")
 
   def open(sid:String, config:SocketIOConfig, activeTransport:EngineIOTransport):EngineIOEnvelope = EngineIOEnvelope(Open, Some(EngineIOSessionInitPacket(sid, config.transportsFiltering(activeTransport), config.pingInterval.get(ChronoUnit.SECONDS)*1000, config.pingTimeout.get(ChronoUnit.SECONDS)*1000)))
-  def connect(message:String):EngineIOEnvelope = EngineIOEnvelope(Message, socketioPacket = Some(SocketIOEnvelope.connect(message)))
+  def connect(message:String):EngineIOEnvelope = EngineIOEnvelope(Message, Some(SocketIOEnvelope.connect(message)))
   def heartbeat(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Pong, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Pong))
   def error(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Error, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Error))
 }
@@ -54,11 +54,7 @@ object MessageType {
 
 }
 
-sealed class MessageType(value:Int) {
-  def getValue = value
-  def payload(b:Array[Byte]):Option[EngineIOPacket] = None
-  def toByte: Byte = (value + 48).toByte
-}
+sealed class MessageType(override val value:Int) extends ProtocolMessageType
 
 case object Open extends MessageType(0)
 case object Close extends MessageType(1)
@@ -73,53 +69,9 @@ case object Error extends MessageType(7)
 
 
 
-case class EngineIOEnvelope(messageType:MessageType, data:Option[EngineIOPacket] = None, socketioPacket:Option[socketio.SocketIOEnvelope] = None) extends LazyLogging {
+case class EngineIOEnvelope(messageType:MessageType, data:Option[Bytable] = None) extends ProtocolOps
 
-  def convert(i:Int, size:Int): Array[Byte] = {
-    size match {
-      case 1 => {
-        Array((i % 10).toByte)
-      }
-      case x => {
-        val pow1 = Math.pow(10, size).toInt
-        val v = i % pow1
-        val pow = Math.pow(10, size-1).toInt
-        val u = v / pow
-        val result = convert(i, size - 1)
-        Array(u.toByte) ++ result
-      }
-    }
-  }
-
-  def intToBytes(i:Int): Array[Byte] = {
-    val size = Math.log10(i).toInt
-    Array(0.toByte) ++ convert(i, size+1)
-  }
-
-  def toByteString: ByteString = {
-    val payload:Array[Byte] = data.map(_.toBytes).getOrElse(Array.emptyByteArray)
-    val bytes = ArrayBuffer[Byte]()
-    bytes.appendAll(intToBytes(payload.length+1))
-    bytes.append(0xff.toByte)
-    bytes.append(messageType.toByte)
-    bytes.appendAll(payload)
-    socketioPacket.map { p =>
-      bytes.appendAll(p.toByteString)
-    }
-    ByteString(bytes.toArray)
-  }
-
-  override def toString: String = {
-    val payload:String = data.map(_.toString).getOrElse(new String())
-    val buffer = new StringBuffer()
-    buffer.append(messageType.getValue)
-    buffer.append(payload)
-    buffer.toString
-  }
-
-}
-
-trait EngineIOPacket {
+trait EngineIOPacket extends Bytable {
   def toBytes():Array[Byte]
 }
 
@@ -138,8 +90,8 @@ case class EngineIOStringPacket(message:String) extends EngineIOPacket {
 }
 
 case class EngineIOPackets(packets:EngineIOEnvelope*) {
-  def toByteString: ByteString = {
-    packets.foldLeft[ByteString](ByteString())((acc, n) => acc ++ n.toByteString)
+  def toBytes: Array[Byte] = {
+    packets.foldLeft[Array[Byte]](Array.emptyByteArray)((acc, n) => acc ++ n.toBytes)
   }
   override def toString:String = {
     packets.foldLeft[String](new String())((acc, n) => acc ++ n.toString)
