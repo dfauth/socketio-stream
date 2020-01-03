@@ -6,19 +6,22 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
-import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives.{path, _}
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.ByteString
 import com.github.dfauth.engineio._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
 
 class SocketIoStream(system: ActorSystem) extends LazyLogging {
 
@@ -76,6 +79,20 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
     }
   }
 
+  implicit val decoder:FromRequestUnmarshaller[EngineIOEnvelope] = new Unmarshaller[HttpRequest, EngineIOEnvelope](){
+    override def apply(req: HttpRequest)(implicit ec: ExecutionContext, materializer: Materializer): Future[EngineIOEnvelope] = {
+      val p = Promise[EngineIOEnvelope]()
+      Future({
+        val str = req.entity.dataBytes.runFold(new String)((acc, byteString)=> acc ++ byteString.utf8String)
+        str.onComplete({
+          case Success(s) => EngineIOEnvelope.fromString(s).map { p.success(_)} getOrElse {p.failure(new RuntimeException("Failed to collect bytes"))}
+          case Failure(t) => p.failure(t)
+        })(global)
+      })(global)
+      p.future
+    }
+  }
+
   def subscribe = {
     path("socket.io" / ) { concat(
 
@@ -119,19 +136,9 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
       },
       post {
         tokenAuth { token =>
-          parameters('transport, 't, 'EIO) {
-            (transport, requestId, eio) =>
-              EngineIOTransport.valueOf(transport) match {
-                case Websocket => {
-                  // shouldnt happen
-                  logger.info("Unexpected websocket transport with POST message")
-                  complete(HttpResponse(StatusCodes.InternalServerError))
-                }
-                case activeTransport@Polling => {
-                  logger.info(s"POST polling ${requestId} ${eio} ${token}")
-                  complete(HttpResponse(StatusCodes.OK))
-                }
-              }
+          entity(as[EngineIOEnvelope]) { e =>
+            logger.info(s"${e} ${e.messageType} ${e.data}")
+            complete(HttpResponse(StatusCodes.OK))
           }
         }
       })

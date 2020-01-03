@@ -3,14 +3,12 @@ package com.github.dfauth.engineio
 import java.nio.charset.Charset
 import java.time.temporal.ChronoUnit
 
-import akka.util.ByteString
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
-import com.github.dfauth.socketio
 import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
-import scala.collection.mutable.ArrayBuffer
+import scala.util.{Failure, Success, Try}
 
 object EngineIOEnvelope extends LazyLogging {
 
@@ -32,6 +30,19 @@ object EngineIOEnvelope extends LazyLogging {
     }
   }
 
+  def fromString(str: String):Try[EngineIOEnvelope] = {
+    str.toCharArray match {
+      case Array() => Failure(new IllegalArgumentException("Unexpected empty string"))
+      case Array(len, ':', msgType, _*) => Success(EngineIOEnvelope(MessageType.fromChar(msgType),
+        SocketIOEnvelope.fromString(str.substring(str.length-len.toString.toInt+1, str.length)).toOption
+//          new Bytable() {
+//            override def toBytes: Array[Byte] = str.substring(str.length-len, str.length).getBytes
+//          }
+      ))
+      case _ => Failure(new IllegalArgumentException("Unexpected string: ${str}"))
+    }
+  }
+
   val UTF8 = Charset.forName("UTF-8")
 
   def open(sid:String, config:SocketIOConfig, activeTransport:EngineIOTransport):EngineIOEnvelope = EngineIOEnvelope(Open, Some(EngineIOSessionInitPacket(sid, config.transportsFiltering(activeTransport), config.pingInterval.get(ChronoUnit.SECONDS)*1000, config.pingTimeout.get(ChronoUnit.SECONDS)*1000)))
@@ -41,6 +52,9 @@ object EngineIOEnvelope extends LazyLogging {
 }
 
 object MessageType {
+
+  def fromChar(c:Char) = fromByte(c.toByte)
+
   def fromByte(b: Byte) = (b.toInt - 48 )  match {
     case 0 => Open
     case 1 => Close

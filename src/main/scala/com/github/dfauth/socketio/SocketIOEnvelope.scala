@@ -1,9 +1,24 @@
 package com.github.dfauth.socketio
 
-import com.github.dfauth.engineio.{EngineIOEnvelope, EngineIOPacket}
-import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
+import com.github.dfauth.engineio._
+import com.github.dfauth.protocol.{Bytable, ProtocolMessageType}
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.{Failure, Success, Try}
+
+object MessageType {
+  def fromChar(c:Char) = fromByte(c.toByte)
+
+  def fromByte(b: Byte) = (b.toInt - 48 )  match {
+    case 0 => Connect
+    case 1 => Disconnect
+    case 2 => Event
+    case 3 => Ack
+    case 4 => Error
+    case 5 => BinaryEvent
+    case 6 => BinaryAck
+  }
+}
 
 sealed class MessageType(override val value:Int) extends ProtocolMessageType
 
@@ -16,6 +31,15 @@ case object BinaryEvent extends MessageType(5)
 case object BinaryAck extends MessageType(6)
 
 object SocketIOEnvelope {
+  def fromString(str: String): Try[SocketIOEnvelope] = {
+    str.toCharArray match {
+      case Array() => Failure(new IllegalArgumentException("Oops empty string"))
+      case Array(msgType) => Success(SocketIOEnvelope(MessageType.fromChar(msgType)))
+      case Array(msgType, _*) => Success(SocketIOEnvelope(MessageType.fromChar(msgType), Some(SocketIOPacket(str.substring(1)))))
+      case x => Failure(new IllegalArgumentException(s"Oops unknown argument ${x}"))
+    }
+  }
+
   def connect(namespace:String) = {
     SocketIOEnvelope(Connect, Some(SocketIOPacket(namespace)))
   }
