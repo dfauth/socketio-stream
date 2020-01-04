@@ -7,14 +7,13 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 
-class HandshakeProcessor[I, O](handshake: I => Future[Option[O]], completionLogic:(I,O) => Boolean) extends Processor[I, O] with LazyLogging {
+class HandshakeProcessor[I, O](handshake: I => Future[Option[O]]) extends Processor[I, O] with LazyLogging {
 
   var subscriber:Option[Subscriber[_ >: O]] = None
   var subscription:Option[Subscription] = None
 
   override def onSubscribe(s: Subscription): Unit = {
     subscription = Some(s)
-    //subscription.map(_.request(1)) // as soon as our subscription is accepted, ask for the handshake
     init()
   }
 
@@ -32,9 +31,6 @@ class HandshakeProcessor[I, O](handshake: I => Future[Option[O]], completionLogi
           i.onError(t)
         }
       }
-//      if(completionLogic((i,o))) {
-//        onComplete()
-//      }
     })
   }
 

@@ -3,11 +3,17 @@ package com.github.dfauth.engineio
 import java.nio.charset.Charset
 import java.time.temporal.ChronoUnit
 
+import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
+import akka.stream.Materializer
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
 import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 object EngineIOEnvelope extends LazyLogging {
@@ -35,9 +41,6 @@ object EngineIOEnvelope extends LazyLogging {
       case Array() => Failure(new IllegalArgumentException("Unexpected empty string"))
       case Array(len, ':', msgType, _*) => Success(EngineIOEnvelope(MessageType.fromChar(msgType),
         SocketIOEnvelope.fromString(str.substring(str.length-len.toString.toInt+1, str.length)).toOption
-//          new Bytable() {
-//            override def toBytes: Array[Byte] = str.substring(str.length-len, str.length).getBytes
-//          }
       ))
       case _ => Failure(new IllegalArgumentException("Unexpected string: ${str}"))
     }
@@ -49,6 +52,37 @@ object EngineIOEnvelope extends LazyLogging {
   def connect(message:String):EngineIOEnvelope = EngineIOEnvelope(Message, Some(SocketIOEnvelope.connect(message)))
   def heartbeat(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Pong, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Pong))
   def error(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Error, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Error))
+
+  implicit val decoder:FromRequestUnmarshaller[EngineIOEnvelope] = new Unmarshaller[HttpRequest, EngineIOEnvelope](){
+    override def apply(req: HttpRequest)(implicit ec: ExecutionContext, materializer: Materializer): Future[EngineIOEnvelope] = {
+      val p = Promise[EngineIOEnvelope]()
+      Future({
+        val str = req.entity.dataBytes.runFold(new String)((acc, byteString)=> acc ++ byteString.utf8String)
+        str.onComplete({
+          case Success(s) => fromString(s).map { p.success(_)} getOrElse {p.failure(new RuntimeException("Failed to collect bytes"))}
+          case Failure(t) => p.failure(t)
+        })(global)
+      })(global)
+      p.future
+    }
+  }
+
+  def unwrap: Message => Future[EngineIOEnvelope] = m => Future {
+    m match {
+      case TextMessage.Strict(b) => {
+        val env = EngineIOEnvelope.fromBytes(b.getBytes)
+        env.getOrElse(throw new IllegalArgumentException(s"Invalid message format: ${b}"))
+      }
+      case x => throw new IllegalArgumentException(s"Unexpected message: ${x}")
+    }
+  }
+
+  def probe: EngineIOEnvelope => Option[EngineIOEnvelope] = {
+    case EngineIOEnvelope(Upgrade, None) => None // ignore
+    case EngineIOEnvelope(Ping, None) => Some(EngineIOEnvelope.heartbeat())
+    case EngineIOEnvelope(Ping, Some(EngineIOStringPacket(m))) => Some(EngineIOEnvelope.heartbeat(Some(m)))
+  }
+
 }
 
 object MessageType {
