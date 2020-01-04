@@ -11,13 +11,15 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
 import com.github.dfauth.engineio.EngineIOEnvelope._
 import com.github.dfauth.engineio._
+import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
-class SocketIoStream(system: ActorSystem) extends LazyLogging {
+class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) extends LazyLogging {
 
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe ~ static
@@ -27,8 +29,16 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
   def octetStream(source: Source[ByteString, NotUsed]): ToResponseMarshallable = HttpResponse(entity = HttpEntity.Chunked.fromData(ContentTypes.`application/octet-stream`, source))
 
   def validateToken(token:String): Boolean = {
-    logger.info(s"validatetoken($token) as true")
-    true
+    tokenValidator(token) match {
+      case Success(u) => {
+        logger.info(s"validatetoken($token): ${u}")
+        true
+      }
+      case Failure(t) => {
+        logger.error(t.getMessage, t)
+        false
+      }
+    }
   }
 
   def tokenAuth(r:String => Route):Route = optionalHeaderValueByName("x-auth") { token =>
@@ -99,5 +109,6 @@ class SocketIoStream(system: ActorSystem) extends LazyLogging {
 }
 
 object SocketIoStream {
-  def apply(system: ActorSystem): SocketIoStream = new SocketIoStream(system)
+  type TokenValidator[U] = String => Try[U]
+  def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U]): SocketIoStream[U] = new SocketIoStream(system, tokenValidator)
 }
