@@ -2,14 +2,15 @@ package com.github.dfauth.socketio
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.actor.typed.{ActorSystem => TypedActorSystem}
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Source}
-import akka.util.ByteString
+import akka.util.{ByteString, Timeout}
 import com.github.dfauth.actor._
 import com.github.dfauth.engineio.EngineIOEnvelope._
 import com.github.dfauth.engineio._
@@ -17,6 +18,7 @@ import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) extends LazyLogging {
@@ -71,9 +73,27 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                   }
                 }
                 case activeTransport@Polling => {
-                  val e:EngineIOEnvelope = sid match {
+                  val e: EngineIOEnvelope = sid match {
                     case None => EngineIOEnvelope.open(userCtx.token, config, activeTransport)
-                    case Some(v) => EngineIOEnvelope.connect("/chat")
+                    case Some(v) => {
+                      val ref:ActorRef[SupervisorMessage] = ActorUtils.asActor(Behaviors.setup[SupervisorMessage] { ctx => {
+                        implicit val timeout: Timeout = 3.seconds
+                        implicit val scheduler = supervisor.scheduler
+                        ctx.ask[SupervisorMessage, SupervisorMessage](supervisor, ref => FetchSession(v, ref)) {
+                          case Success(r) => {
+                            logger.info(s"response: ${r}")
+                            r
+                          }
+                          case Failure(t) => {
+                            logger.error(t.getMessage, t)
+                            ErrorMessage(t)
+                          }
+                        }
+                        Behaviors.same
+                      }
+                      })
+                    }
+                      EngineIOEnvelope.connect("/chat")
                   }
                   complete(octetStream(Source.fromPublisher(DelayedClosePublisher(ByteString(EngineIOPackets(e).toBytes), config.longPollTimeout))))
                 }
