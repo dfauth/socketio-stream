@@ -5,7 +5,7 @@ version := "0.1-SNAPSHOT"
 scalaVersion := "2.12.6"
 
 val kafkaVersion = "2.1.1"
-val akkaVersion = "2.5.23"
+val akkaVersion = "2.6.1"
 val akkaHttpVersion = "10.1.10"
 val springVersion = "5.1.8.RELEASE"
 
@@ -32,6 +32,7 @@ val tyrus = "org.glassfish.tyrus.bundles" % "tyrus-standalone-client-jdk" % "1.1
 val playSocketIo = "com.lightbend.play" %% "play-socket-io" % "1.0.0-beta-2"
 val guice = "com.google.inject" % "guice" % "4.2.2"
 val socketioClient = "io.socket" % "socket.io-client" % "1.0.0" % Test
+val akkaTyped = "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion
 
 
 val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging, logback)
@@ -42,6 +43,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= commonScalaDeps ++ Seq(
       akkaHttp,
       akkaStream,
+      akkaTyped,
       guice,
 //      kafkaCore,
 //      akkaStreamsKafka,

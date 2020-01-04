@@ -7,8 +7,9 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
+import com.github.dfauth.actor.SupervisorMessage
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
-import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope}
+import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope, UserContext}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
@@ -103,7 +104,9 @@ object MessageType {
 
 }
 
-sealed class MessageType(override val value:Int) extends ProtocolMessageType
+sealed class MessageType(override val value:Int) extends ProtocolMessageType with LazyLogging {
+  def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): SupervisorMessage = ???
+}
 
 case object Open extends MessageType(0)
 case object Close extends MessageType(1)
@@ -111,7 +114,16 @@ case object Ping extends MessageType(2) {
   override def payload(b:Array[Byte]):Option[EngineIOPacket] = Some(EngineIOStringPacket((b.map(_.toChar)).mkString))
 }
 case object Pong extends MessageType(3)
-case object Message extends MessageType(4)
+case object Message extends MessageType(4) {
+  override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): SupervisorMessage = {
+    e.data match {
+      case Some(SocketIOEnvelope(msgType, data)) => {
+        logger.info(s"SocketIOEnvelope contains: ${msgType} ${data}")
+        msgType.toActorMessage(ctx, data)
+      }
+    }
+  }
+}
 case object Upgrade extends MessageType(5)
 case object Noop extends MessageType(6)
 case object Error extends MessageType(7)
