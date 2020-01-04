@@ -24,22 +24,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe ~ static
 
-  def authenticateToken(t: String): Boolean = true
-
   def octetStream(source: Source[ByteString, NotUsed]): ToResponseMarshallable = HttpResponse(entity = HttpEntity.Chunked.fromData(ContentTypes.`application/octet-stream`, source))
-
-  def validateToken(token:String): Boolean = {
-    tokenValidator(token) match {
-      case Success(u) => {
-        logger.info(s"validatetoken($token): ${u}")
-        true
-      }
-      case Failure(t) => {
-        logger.error(t.getMessage, t)
-        false
-      }
-    }
-  }
 
   def tokenAuth(r:UserContext[U] => Route):Route = optionalHeaderValueByName("x-auth") { token =>
     val handleValidation = (t:String) => tokenValidator(t) match {
@@ -60,18 +45,6 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
         handleValidation(t)
       }
     }
-//    token.filter(t => validateToken(t)).map(t=>
-//      r(t)
-//    ).getOrElse {
-//      // try a query parameter
-//      parameters('sid) { token =>
-//        if(validateToken(token)) {
-//          r(token)
-//        } else {
-//          complete(HttpResponse(StatusCodes.Unauthorized))
-//        }
-//      }
-//    }
   }
 
 

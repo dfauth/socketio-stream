@@ -18,20 +18,26 @@ import scala.util.{Failure, Success, Try}
 
 object EngineIOEnvelope extends LazyLogging {
 
-  def fromBytes(b: Array[Byte]):Option[EngineIOEnvelope] = {
+  def fromBytes(b: Array[Byte]):Try[EngineIOEnvelope] = {
     b match {
+      case Array() => {
+        val e = new RuntimeException("Unexpected empty byte array")
+        logger.error(e.getMessage, e)
+        Failure(e)
+      }
       case Array(x) => {
         val msgType = MessageType.fromByte(x)
-        Some(EngineIOEnvelope(msgType))
+        Success(EngineIOEnvelope(msgType))
       }
       case Array(x, _*) => {
         val msgType = MessageType.fromByte(x)
         val payload = msgType.payload(b.slice(1, b.length))
-        Some(EngineIOEnvelope(msgType, payload))
+        Success(EngineIOEnvelope(msgType, payload))
       }
-      case _ => {
-        logger.error("Unexpected empty byte array")
-        None
+      case x => {
+        val e = new RuntimeException(s"Unmatcheable byte array ${x}")
+        logger.error(e.getMessage, e)
+        Failure(e)
       }
     }
   }
@@ -70,8 +76,13 @@ object EngineIOEnvelope extends LazyLogging {
   def unwrap: Message => Future[EngineIOEnvelope] = m => Future {
     m match {
       case TextMessage.Strict(b) => {
-        val env = EngineIOEnvelope.fromBytes(b.getBytes)
-        env.getOrElse(throw new IllegalArgumentException(s"Invalid message format: ${b}"))
+        EngineIOEnvelope.fromBytes(b.getBytes) match {
+          case Success(e) => e
+          case Failure(t) => {
+            logger.error(t.getMessage, t)
+            throw t
+          }
+        }
       }
       case x => throw new IllegalArgumentException(s"Unexpected message: ${x}")
     }
