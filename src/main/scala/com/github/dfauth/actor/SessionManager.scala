@@ -14,11 +14,7 @@ class SessionManager(ctx: ActorContext[SupervisorMessage], namespace:String) ext
   override def onMessage(msg: SupervisorMessage): Behavior[SupervisorMessage] = {
     logger.info(s"session manager received message ${msg}")
     msg match {
-      case FetchSession(id, replyTo) => {
-        val response = FetchSessionReply()
-        logger.info(s"replying to ${replyTo} msg ${response}")
-        replyTo ! response
-      }
+      case FetchSession(id, replyTo) => replyTo ! FetchSessionReply(namespace)
       case x => logger.error(s"received unhandled message ${x}")
     }
     Behaviors.unhandled
@@ -31,9 +27,7 @@ class SessionManager(ctx: ActorContext[SupervisorMessage], namespace:String) ext
   }
 }
 
-case class FetchSession(id:String, replyTo:ActorRef[SupervisorMessage]) extends SupervisorMessage with RequestRequiringResponse[SupervisorMessage, SupervisorMessage] {
-  def apply(ref:ActorRef[SupervisorMessage]): SupervisorMessage = this
-}
+case class FetchSession(id:String, replyTo:ActorRef[FetchSessionReply]) extends SupervisorMessage
 
-case class FetchSessionReply() extends SupervisorMessage
+case class FetchSessionReply(namespace:String) extends SupervisorMessage
 case class ErrorMessage(t:Throwable) extends SupervisorMessage

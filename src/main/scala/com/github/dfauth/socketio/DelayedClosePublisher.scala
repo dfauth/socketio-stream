@@ -7,8 +7,9 @@ import org.reactivestreams.{Publisher, Subscriber, Subscription}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
-case class DelayedClosePublisher[T](payload: T, delay:TemporalAmount = Duration.ofSeconds(2)) extends Publisher[T] {
+case class DelayedClosePublisher[T](payload: Future[T], delay:TemporalAmount = Duration.ofSeconds(2)) extends Publisher[T] {
 
   override def subscribe(s: Subscriber[_ >: T]): Unit = {
     s.onSubscribe(new Subscription {
@@ -16,10 +17,15 @@ case class DelayedClosePublisher[T](payload: T, delay:TemporalAmount = Duration.
 
       override def cancel(): Unit = {}
     })
+    payload.onComplete {
+      case Success(p) => s.onNext(p)
+      case Failure(t) => s.onError(t)
+    }
     Future {
-      s.onNext(payload)
       Thread.sleep(delay.get(ChronoUnit.SECONDS)*1000)
-      s.onComplete()
+      if(payload.isCompleted) {
+        s.onComplete()
+      }
     }
   }
 

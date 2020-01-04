@@ -5,11 +5,6 @@ import akka.actor.typed.receptionist.ServiceKey
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 
-trait RequestRequiringResponse[I,O] extends Function1[ActorRef[I], O] {
-  val replyTo:ActorRef[I]
-}
-
-
 object ActorUtils {
 
   type Bootstrapper[T] = Behavior[T] => ActorRef[T]
