@@ -41,19 +41,37 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     }
   }
 
-  def tokenAuth(r:String => Route):Route = optionalHeaderValueByName("x-auth") { token =>
-    token.filter(t => validateToken(t)).map(t=>
-      r(t)
-    ).getOrElse {
-      // try a query parameter
-      parameters('sid) { token =>
-        if(validateToken(token)) {
-          r(token)
-        } else {
-          complete(HttpResponse(StatusCodes.Unauthorized))
-        }
+  def tokenAuth(r:UserContext[U] => Route):Route = optionalHeaderValueByName("x-auth") { token =>
+    val handleValidation = (t:String) => tokenValidator(t) match {
+      case Success(u) => {
+        logger.info(s"validatetoken($t): ${u}")
+        r(u)
+      }
+      case Failure(e) => {
+        logger.error(e.getMessage, e)
+        complete(HttpResponse(StatusCodes.Unauthorized))
       }
     }
+    token.map(t=>
+      handleValidation(t)
+    ).getOrElse {
+      // try a query parameter
+      parameters('sid) { t =>
+        handleValidation(t)
+      }
+    }
+//    token.filter(t => validateToken(t)).map(t=>
+//      r(t)
+//    ).getOrElse {
+//      // try a query parameter
+//      parameters('sid) { token =>
+//        if(validateToken(token)) {
+//          r(token)
+//        } else {
+//          complete(HttpResponse(StatusCodes.Unauthorized))
+//        }
+//      }
+//    }
   }
 
 
@@ -61,7 +79,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     path("socket.io" / ) { concat(
 
       get {
-        tokenAuth { token =>
+        tokenAuth { userCtx =>
           parameters('transport, 'EIO, 'sid.?) {
             (transport, eio, sid) =>
               EngineIOTransport.valueOf(transport) match {
@@ -81,7 +99,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                   )
                 }
                 case activeTransport@Polling => {
-                  val packets:EngineIOPackets = sid.map { _ => EngineIOPackets(EngineIOEnvelope.connect("/chat")) }.getOrElse { EngineIOPackets(EngineIOEnvelope.open(token, config, activeTransport))}
+                  val packets:EngineIOPackets = sid.map { _ => EngineIOPackets(EngineIOEnvelope.connect("/chat")) }.getOrElse { EngineIOPackets(EngineIOEnvelope.open(userCtx.token, config, activeTransport))}
                   complete(octetStream(Source.fromPublisher(DelayedClosePublisher(ByteString(packets.toBytes), 2000))))
                 }
               }
@@ -108,7 +126,12 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     }
 }
 
+trait UserContext[U] {
+  val token:String
+  val payload:U
+}
+
 object SocketIoStream {
-  type TokenValidator[U] = String => Try[U]
+  type TokenValidator[U] = String => Try[UserContext[U]]
   def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U]): SocketIoStream[U] = new SocketIoStream(system, tokenValidator)
 }

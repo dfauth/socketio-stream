@@ -17,10 +17,11 @@ object Main extends App with LazyLogging {
   SocketIoService(system, materializer, sslConfig = Some(SslConfig()), tokenValidator = validator).start()
   Await.result(system.whenTerminated, Duration.Inf)
 
-  def validator:TokenValidator[User] = _ => Success(User("fred"))
+  def validator:TokenValidator[User] = t => Success(new UserContextImpl(t, User("fred")))
 
 }
 
 case class User(name:String)
+case class UserContextImpl(token:String, payload:User) extends UserContext[User]
 
 
