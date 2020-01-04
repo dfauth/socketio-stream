@@ -10,4 +10,5 @@ case class SocketIOConfig(config: Config) {
   val transports = config.getStringList("engineio.transports").asScala.toArray
   val pingInterval = config.getTemporal("engineio.ping-interval")
   val pingTimeout = config.getTemporal("engineio.ping-timeout")
+  val longPollTimeout = config.getTemporal("engineio.long-poll-timeout")
 }

@@ -71,8 +71,11 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                   }
                 }
                 case activeTransport@Polling => {
-                  val packets:EngineIOPackets = sid.map { _ => EngineIOPackets(EngineIOEnvelope.connect("/chat")) }.getOrElse { EngineIOPackets(EngineIOEnvelope.open(userCtx.token, config, activeTransport))}
-                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(ByteString(packets.toBytes), 2000))))
+                  val e:EngineIOEnvelope = sid match {
+                    case None => EngineIOEnvelope.open(userCtx.token, config, activeTransport)
+                    case Some(v) => EngineIOEnvelope.connect("/chat")
+                  }
+                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(ByteString(EngineIOPackets(e).toBytes), config.longPollTimeout))))
                 }
               }
           }

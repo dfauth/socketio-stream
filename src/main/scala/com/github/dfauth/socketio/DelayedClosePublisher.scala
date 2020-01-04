@@ -1,11 +1,14 @@
 package com.github.dfauth.socketio
 
+import java.time.Duration
+import java.time.temporal.{ChronoUnit, TemporalAmount}
+
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
 
-import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
-case class DelayedClosePublisher[T](payload: T, delay:Long = 1000L) extends Publisher[T] {
+case class DelayedClosePublisher[T](payload: T, delay:TemporalAmount = Duration.ofSeconds(2)) extends Publisher[T] {
 
   override def subscribe(s: Subscriber[_ >: T]): Unit = {
     s.onSubscribe(new Subscription {
@@ -15,7 +18,7 @@ case class DelayedClosePublisher[T](payload: T, delay:Long = 1000L) extends Publ
     })
     Future {
       s.onNext(payload)
-      Thread.sleep(delay)
+      Thread.sleep(delay.get(ChronoUnit.SECONDS)*1000)
       s.onComplete()
     }
   }
