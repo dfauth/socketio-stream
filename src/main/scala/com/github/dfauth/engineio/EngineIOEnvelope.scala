@@ -73,19 +73,9 @@ object EngineIOEnvelope extends LazyLogging {
     }
   }
 
-  def unwrap: Message => Future[EngineIOEnvelope] = m => Future {
-    m match {
-      case TextMessage.Strict(b) => {
-        EngineIOEnvelope.fromBytes(b.getBytes) match {
-          case Success(e) => e
-          case Failure(t) => {
-            logger.error(t.getMessage, t)
-            throw t
-          }
-        }
-      }
-      case x => throw new IllegalArgumentException(s"Unexpected message: ${x}")
-    }
+  def unwrap: Message => Try[EngineIOEnvelope] = m => m match {
+    case TextMessage.Strict(b) => EngineIOEnvelope.fromBytes(b.getBytes)
+    case x => Failure(new IllegalArgumentException(s"Unexpected message: ${x}"))
   }
 
   def probe: EngineIOEnvelope => Option[EngineIOEnvelope] = {

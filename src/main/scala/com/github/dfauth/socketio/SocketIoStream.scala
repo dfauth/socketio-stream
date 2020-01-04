@@ -15,8 +15,6 @@ import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) extends LazyLogging {
@@ -58,7 +56,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
                   handleWebSocketMessages({
-                    val tmp:Message => Future[Option[Message]] = (m:Message) => unwrap(m)
+                    val tmp:Message => Try[Option[Message]] = (m:Message) => unwrap(m)
                       .map { e => {
                         probe(e).map(v => TextMessage.Strict(v.toString))
                       }
