@@ -78,7 +78,7 @@ object EngineIOEnvelope extends LazyLogging {
     case x => Failure(new IllegalArgumentException(s"Unexpected message: ${x}"))
   }
 
-  def probe: EngineIOEnvelope => Option[EngineIOEnvelope] = {
+  def handleEngineIOMessage: EngineIOEnvelope => Option[EngineIOEnvelope] = {
     case EngineIOEnvelope(Upgrade, None) => None // ignore
     case EngineIOEnvelope(Ping, None) => Some(EngineIOEnvelope.heartbeat())
     case EngineIOEnvelope(Ping, Some(EngineIOStringPacket(m))) => Some(EngineIOEnvelope.heartbeat(Some(m)))

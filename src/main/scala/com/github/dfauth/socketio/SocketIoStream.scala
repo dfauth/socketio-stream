@@ -5,7 +5,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
-import akka.http.scaladsl.server.Directives.{path, _}
+import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
@@ -51,23 +51,20 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
 
       get {
         tokenAuth { userCtx =>
-          parameters('transport, 'EIO, 'sid.?) {
+          parameters('transport, 'EIO, 'sid.?) { // sid is optional in the initial GET
             (transport, eio, sid) =>
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
-                  handleWebSocketMessages({
-                    val tmp:Message => Try[Option[Message]] = (m:Message) => unwrap(m)
-                      .map { e => {
-                        probe(e).map(v => TextMessage.Strict(v.toString))
+                  handleWebSocketMessages {
+                    val tmp:Message => Option[Message] = (m:Message) => unwrap(m) match {
+                      case Success(e) => handleEngineIOMessage(e).map(v => TextMessage.Strict(v.toString))
+                      case Failure(t) => {
+                        logger.error(t.getMessage, t)
+                        Some(TextMessage.Strict(EngineIOEnvelope.error(Some(t.getMessage)).toString))
                       }
-//                      .failed.map { t => {
-//                          logger.error(t.getMessage, t)
-//                          TextMessage.Strict(EngineIOEnvelope.error(Some(t.getMessage)).toString)
-//                        }
                     }
                     Flow.fromProcessor(() => new HandshakeProcessor[Message, Message](tmp))
                   }
-                  )
                 }
                 case activeTransport@Polling => {
                   val packets:EngineIOPackets = sid.map { _ => EngineIOPackets(EngineIOEnvelope.connect("/chat")) }.getOrElse { EngineIOPackets(EngineIOEnvelope.open(userCtx.token, config, activeTransport))}
@@ -78,10 +75,13 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
         }
       },
       post {
-        tokenAuth { token =>
-          entity(as[EngineIOEnvelope]) { e =>
-            logger.info(s"entity: ${e} ${e.messageType} ${e.data}")
-            complete(HttpResponse(StatusCodes.OK, entity = HttpEntity("ok")))
+        tokenAuth { userCtx =>
+          parameters('transport, 'EIO, 'sid) { // sid must exist
+            (transport, eio, sid) =>
+              entity(as[EngineIOEnvelope]) { e =>
+                logger.info(s"entity: ${e} ${e.messageType} ${e.data}")
+                complete(HttpResponse(StatusCodes.OK, entity = HttpEntity("ok")))
+              }
           }
         }
       })
