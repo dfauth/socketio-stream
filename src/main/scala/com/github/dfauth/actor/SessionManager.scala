@@ -1,33 +1,38 @@
 package com.github.dfauth.actor
 
-import akka.actor.typed.{ActorRef, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
+import akka.actor.typed.{Behavior, PostStop, Signal}
 import com.typesafe.scalalogging.LazyLogging
 
 object SessionManager {
-  def apply(namespace:String): Behavior[SupervisorMessage] = Behaviors.setup[SupervisorMessage](context => new SessionManager(context, namespace))
+  def apply(namespace:String): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, namespace))
 }
 
-class SessionManager(ctx: ActorContext[SupervisorMessage], namespace:String) extends AbstractBehavior[SupervisorMessage](ctx) with LazyLogging {
+class SessionManager(ctx: ActorContext[Command], namespace:String) extends AbstractBehavior[Command](ctx) with LazyLogging {
   ctx.log.info(s"session manager started namespace: ${namespace}")
 
-  override def onMessage(msg: SupervisorMessage): Behavior[SupervisorMessage] = {
+  override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"session manager received message ${msg}")
     msg match {
-      case FetchSession(id, replyTo) => replyTo ! FetchSessionReply(namespace)
-      case x => logger.error(s"received unhandled message ${x}")
+      case FetchSession(id, replyTo) => {
+        replyTo ! FetchSessionReply(id, namespace)
+        Behaviors.same
+      }
+      case EndSession(id) => {
+        logger.info(s"session ${id} stopped")
+        Behaviors.stopped
+      }
+      case x => {
+        logger.error(s"received unhandled message ${x}")
+        Behaviors.unhandled
+      }
     }
-    Behaviors.unhandled
   }
 
-  override def onSignal: PartialFunction[Signal, Behavior[SupervisorMessage]] = {
+  override def onSignal: PartialFunction[Signal, Behavior[Command]] = {
     case PostStop =>
       context.log.info("session manager stopped")
       this
   }
 }
 
-case class FetchSession(id:String, replyTo:ActorRef[FetchSessionReply]) extends SupervisorMessage
-
-case class FetchSessionReply(namespace:String) extends SupervisorMessage
-case class ErrorMessage(t:Throwable) extends SupervisorMessage

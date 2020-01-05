@@ -1,6 +1,6 @@
 package com.github.dfauth.socketio
 
-import com.github.dfauth.actor.{CreateSession, CreateSessionWithNamespace, SupervisorMessage}
+import com.github.dfauth.actor.{AddNamespace, Command}
 import com.github.dfauth.engineio._
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType}
 
@@ -22,13 +22,12 @@ object MessageType {
 }
 
 sealed class MessageType(override val value:Int) extends ProtocolMessageType {
-  def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): SupervisorMessage = ???
+  def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = ???
 }
 
 case object Connect extends MessageType(0) {
-  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): SupervisorMessage = data match {
-    case None => CreateSession
-    case Some(SocketIOPacket(namespace)) => CreateSessionWithNamespace(ctx.token, namespace)
+  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
+    case Some(SocketIOPacket(namespace)) => AddNamespace(ctx.token, namespace)
   }
 }
 case object Disconnect extends MessageType(1)

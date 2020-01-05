@@ -4,34 +4,35 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import com.typesafe.scalalogging.LazyLogging
 
-trait SupervisorMessage
-case object CreateSession extends SupervisorMessage
-case class CreateSessionWithNamespace(id:String, namespace:String) extends SupervisorMessage
-
-
 object Supervisor {
-  def apply(): Behavior[SupervisorMessage] = Behaviors.setup[SupervisorMessage](context => new Supervisor(context))
+  def apply(): Behavior[Command] = Behaviors.setup[Command](context => new Supervisor(context))
 }
 
-class Supervisor(ctx: ActorContext[SupervisorMessage]) extends AbstractBehavior[SupervisorMessage](ctx) with LazyLogging {
+class Supervisor(ctx: ActorContext[Command]) extends AbstractBehavior[Command](ctx) with LazyLogging {
 
-  var cache:Map[String, ActorRef[SupervisorMessage]] = Map.empty
+  var cache:Map[String, ActorRef[Command]] = Map.empty
 
   ctx.log.info("supervisor started")
 
-  override def onMessage(msg: SupervisorMessage): Behavior[SupervisorMessage] = {
+  override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"supervisor received message ${msg}")
     msg match {
-      case CreateSessionWithNamespace(id, namespace) => {
-        val ref = ctx.spawn[SupervisorMessage](SessionManager(namespace), id)
-        cache = cache + (id -> ref)
+      case AddNamespace(id, namespace) => {
+        cache.get(id).map { ref =>
+          logger.info(s"existing session forwarding ${msg} to ${ref}")
+          ref ! msg
+        } getOrElse {
+          val ref = ctx.spawn[Command](SessionManager(namespace), id)
+          cache = cache + (id -> ref)
+          ref
+        }
       }
-      case m:FetchSession => cache.get(m.id).map { ref => ref ! m }
+      case m:Command => cache.get(m.id).map { ref => ref ! m }
     }
     Behaviors.unhandled
   }
 
-  override def onSignal: PartialFunction[Signal, Behavior[SupervisorMessage]] = {
+  override def onSignal: PartialFunction[Signal, Behavior[Command]] = {
     case PostStop =>
       context.log.info("supervisor stopped")
       this

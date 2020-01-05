@@ -16,6 +16,7 @@ import com.github.dfauth.actor._
 import com.github.dfauth.engineio.EngineIOEnvelope._
 import com.github.dfauth.engineio._
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
+import com.github.dfauth.utils.TryCatchUtils._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
@@ -29,7 +30,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe ~ static
 
-  val supervisor = TypedActorSystem[SupervisorMessage](Supervisor(), "socket_io")
+  val supervisor = TypedActorSystem[Command](Supervisor(), "socket_io")
 
   def octetStream(source: Source[ByteString, NotUsed]): ToResponseMarshallable = HttpResponse(entity = HttpEntity.Chunked.fromData(ContentTypes.`application/octet-stream`, source))
 
@@ -80,7 +81,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                     case None => Future(EngineIOEnvelope.open(userCtx.token, config, activeTransport))
                     case Some(v) => {
                       val p = Promise[EngineIOEnvelope]()
-                      ActorUtils.asActor(Behaviors.setup[SupervisorMessage] { ctx => {
+                      ActorUtils.asActor(Behaviors.setup[Command] { ctx => {
                           implicit val timeout: Timeout = 3.seconds
                           implicit val scheduler = supervisor.scheduler
                           val f = supervisor ? ((ref:ActorRef[FetchSessionReply]) => FetchSession(v, ref))
@@ -101,7 +102,6 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                     }
                   }
                   complete(octetStream(Source.fromPublisher(DelayedClosePublisher(f.map {v => ByteString(EngineIOPackets(v).toBytes)}, config.longPollTimeout))))
-//                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(ByteString(EngineIOPackets(f).toBytes), config.longPollTimeout))))
                 }
               }
           }
@@ -109,13 +109,15 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
       },
       post {
         tokenAuth { userCtx =>
-          parameters('transport, 'EIO, 'sid) { // sid must exist
-            (transport, eio, sid) =>
+          parameters('transport, 'EIO, 'sid, 't.?) { // sid must exist
+            (transport, eio, sid, t) =>
               entity(as[EngineIOEnvelope]) { e =>
-                logger.info(s"entity: ${e} ${e.messageType} ${e.data}")
+                logger.info(s"entity: ${e} ${e.messageType} ${e.data} t: ${t}")
 
-                // create session
-                supervisor ! e.messageType.toActorMessage(userCtx, e)
+                tryCatch {
+                  // create session
+                  supervisor ! e.messageType.toActorMessage(userCtx, e)
+                }
 
                 complete(HttpResponse(StatusCodes.OK, entity = HttpEntity("ok")))
               }

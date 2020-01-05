@@ -23,22 +23,28 @@
 <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
 <script>
     $(function () {
-        const socket = io("/rfq", {
-          transportOptions: {
+        var tOpts = {
             polling: {
               extraHeaders: {
                 'x-auth': 'jkdfghkldfjghkdh_big_fat_token_ksdhklhgkdfh'
               }
             }
           }
+
+        const socket = io("/rfq", {
+          transportOptions: tOpts
+        });
+
+        const socket2 = io("/orders", {
+          transportOptions: tOpts
         });
 
         $('form').submit(function(){
-            socket.emit('chat message', $('#m').val());
+            socket.emit('rfq', $('#m').val());
             $('#m').val('');
             return false;
         });
-        socket.on('chat message', function(msg) {
+        socket.on('rfq', function(msg) {
             $('#messages').append($('<li>').text(msg));
             window.scrollTo(0, document.body.scrollHeight);
         });
