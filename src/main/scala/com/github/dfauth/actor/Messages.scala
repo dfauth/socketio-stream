@@ -1,12 +1,16 @@
 package com.github.dfauth.actor
 
 import akka.actor.typed.ActorRef
+import com.github.dfauth.socketio.UserContext
 
 trait Command {
   val id:String
 }
+
 trait SupervisorCommand extends Command
-//case object CreateSession extends Command
+case class CreateSession[U](userCtx:UserContext[U]) extends Command {
+  val id:String = userCtx.token
+}
 case class AddNamespace(id:String, namespace:String) extends Command
 case class EndSession(id:String) extends Command
 case class FetchSession(id:String, replyTo:ActorRef[FetchSessionReply]) extends Command

@@ -8,13 +8,8 @@ object TryCatchUtils extends LazyLogging {
     try {
       codeBlock
     } catch {
-      case e:RuntimeException => {
-        logger.error(e.getMessage, e)
-        throw e
-      }
       case t:Throwable => {
         logger.error(t.getMessage, t)
-        //throw new RuntimeException(t)
         throw t
       }
 

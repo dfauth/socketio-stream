@@ -2,17 +2,18 @@ package com.github.dfauth.actor
 
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{Behavior, PostStop, Signal}
+import com.github.dfauth.socketio.UserContext
 import com.typesafe.scalalogging.LazyLogging
 
 object SessionManager {
-  def apply(namespace:String): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, namespace))
+  def apply[U](userCtx:UserContext[U]): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx))
 }
 
-class SessionManager(ctx: ActorContext[Command], namespace:String) extends AbstractBehavior[Command](ctx) with LazyLogging {
+class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U]) extends AbstractBehavior[Command](ctx) with LazyLogging {
 
-  ctx.log.info(s"session manager started namespace: ${namespace}")
+  ctx.log.info(s"session manager started with user ctx: ${userCtx}")
 
-  var namespaces:List[String] = List(namespace)
+  var namespaces:List[String] = List.empty[String]
 
   override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"session manager received message ${msg}")
@@ -22,7 +23,7 @@ class SessionManager(ctx: ActorContext[Command], namespace:String) extends Abstr
         Behaviors.same
       }
       case FetchSession(id, replyTo) => {
-        replyTo ! FetchSessionReply(id, namespace)
+        namespaces.headOption.map(replyTo ! FetchSessionReply(id, _))
         Behaviors.same
       }
       case EndSession(id) => {

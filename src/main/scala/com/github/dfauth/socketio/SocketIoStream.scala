@@ -2,8 +2,8 @@ package com.github.dfauth.socketio
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model._
@@ -13,15 +13,15 @@ import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.{ByteString, Timeout}
 import com.github.dfauth.actor._
+import com.github.dfauth.actor.ActorUtils._
 import com.github.dfauth.engineio.EngineIOEnvelope._
 import com.github.dfauth.engineio._
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
-import com.github.dfauth.utils.TryCatchUtils._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -63,6 +63,8 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
         tokenAuth { userCtx =>
           parameters('transport, 'EIO, 'sid.?) { // sid is optional in the initial GET
             (transport, eio, sid) =>
+              implicit val timeout: Timeout = 3.seconds
+              implicit val scheduler = supervisor.scheduler
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
                   handleWebSocketMessages {
@@ -78,12 +80,13 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                 }
                 case activeTransport@Polling => {
                   val f:Future[EngineIOEnvelope] = sid match {
-                    case None => Future(EngineIOEnvelope.open(userCtx.token, config, activeTransport))
+                    case None => {
+                      supervisor ! CreateSession(userCtx)
+                      Future(EngineIOEnvelope.open(userCtx.token, config, activeTransport))
+                    }
                     case Some(v) => {
                       val p = Promise[EngineIOEnvelope]()
-                      ActorUtils.asActor(Behaviors.setup[Command] { ctx => {
-                          implicit val timeout: Timeout = 3.seconds
-                          implicit val scheduler = supervisor.scheduler
+                      asActor(Behaviors.setup[Command] { ctx => {
                           val f = supervisor ? ((ref:ActorRef[FetchSessionReply]) => FetchSession(v, ref))
                           f.onComplete {
                             case Success(r) => {
@@ -114,10 +117,8 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
               entity(as[EngineIOEnvelope]) { e =>
                 logger.info(s"entity: ${e} ${e.messageType} ${e.data} t: ${t}")
 
-                tryCatch {
-                  // create session
-                  supervisor ! e.messageType.toActorMessage(userCtx, e)
-                }
+                // add namespace
+                supervisor ! e.messageType.toActorMessage(userCtx, e)
 
                 complete(HttpResponse(StatusCodes.OK, entity = HttpEntity("ok")))
               }
