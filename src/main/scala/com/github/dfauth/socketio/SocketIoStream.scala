@@ -3,8 +3,7 @@ package com.github.dfauth.socketio
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, ActorSystem => TypedActorSystem}
+import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
@@ -12,8 +11,8 @@ import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.{ByteString, Timeout}
-import com.github.dfauth.actor._
 import com.github.dfauth.actor.ActorUtils._
+import com.github.dfauth.actor._
 import com.github.dfauth.engineio.EngineIOEnvelope._
 import com.github.dfauth.engineio._
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
@@ -21,8 +20,8 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) extends LazyLogging {
@@ -85,23 +84,9 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                       Future(EngineIOEnvelope.open(userCtx.token, config, activeTransport))
                     }
                     case Some(v) => {
-                      val p = Promise[EngineIOEnvelope]()
-                      asActor(Behaviors.setup[Command] { ctx => {
-                          val f = supervisor ? ((ref:ActorRef[FetchSessionReply]) => FetchSession(v, ref))
-                          f.onComplete {
-                            case Success(r) => {
-                              logger.info(s"response: ${r}")
-                              p.success(EngineIOEnvelope.connect(r.namespace))
-                            }
-                            case Failure(t) => {
-                              logger.error(t.getMessage, t)
-                              p.failure(t)
-                            }
-                          }
-                          Behaviors.same
-                        }
-                      })
-                      p.future
+                      askActor{
+                        supervisor ? FetchSession(v)
+                      }.map {r => EngineIOEnvelope.connect(r.namespace)}
                     }
                   }
                   complete(octetStream(Source.fromPublisher(DelayedClosePublisher(f.map {v => ByteString(EngineIOPackets(v).toBytes)}, config.longPollTimeout))))

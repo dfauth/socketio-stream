@@ -19,10 +19,10 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U]) exte
     logger.info(s"session manager received message ${msg}")
     msg match {
       case AddNamespace(id, namespace) => {
-        namespaces ::= namespace
+        namespaces = namespaces :+ namespace
         Behaviors.same
       }
-      case FetchSession(id, replyTo) => {
+      case FetchSessionCommand(id, replyTo) => {
         namespaces.headOption.map(replyTo ! FetchSessionReply(id, _))
         Behaviors.same
       }

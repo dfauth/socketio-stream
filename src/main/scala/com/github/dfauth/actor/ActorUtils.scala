@@ -2,10 +2,16 @@ package com.github.dfauth.actor
 
 import akka.actor.typed.receptionist.Receptionist.Register
 import akka.actor.typed.receptionist.ServiceKey
-import akka.actor.typed.scaladsl.ActorContext
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import com.typesafe.scalalogging.LazyLogging
 
-object ActorUtils {
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
+
+object ActorUtils extends LazyLogging {
+
+  type AskSupport[Req, Res] = ActorRef[Res] => Req
 
   type Bootstrapper[T] = Behavior[T] => ActorRef[T]
 
@@ -58,4 +64,24 @@ object ActorUtils {
   def asActor[T](behavior:Behavior[T]) = {
     bootstrapper[T]()(behavior)
   }
+
+  def askActor[R](codeBlock: => Future[R])(implicit ec:ExecutionContext):Future[R] = {
+    val p = Promise[R]()
+    asActor(Behaviors.setup[Command] { ctx => {
+        val f = codeBlock
+        f.onComplete {
+          case Success(r) => {
+            p.success(r)
+          }
+          case Failure(t) => {
+            logger.error(t.getMessage, t)
+            p.failure(t)
+          }
+        }
+        Behaviors.stopped
+      }
+    })
+    p.future
+  }
 }
+
