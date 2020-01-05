@@ -9,11 +9,18 @@ object SessionManager {
 }
 
 class SessionManager(ctx: ActorContext[Command], namespace:String) extends AbstractBehavior[Command](ctx) with LazyLogging {
+
   ctx.log.info(s"session manager started namespace: ${namespace}")
+
+  var namespaces:List[String] = List(namespace)
 
   override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"session manager received message ${msg}")
     msg match {
+      case AddNamespace(id, namespace) => {
+        namespaces ::= namespace
+        Behaviors.same
+      }
       case FetchSession(id, replyTo) => {
         replyTo ! FetchSessionReply(id, namespace)
         Behaviors.same

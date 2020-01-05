@@ -98,6 +98,10 @@ object EngineIOEnvelope extends LazyLogging {
 
   def handleEngineIOMessage: EngineIOEnvelope => Option[EngineIOEnvelope] = {
     case EngineIOEnvelope(Upgrade, None) => None // ignore
+    case EngineIOEnvelope(Msg, Some(EngineIOSocketIOPacket(m))) => {
+      logger.info(s"received message: ${m}")
+      None
+    } // ignore
     case EngineIOEnvelope(Ping, None) => Some(EngineIOEnvelope.heartbeat())
     case EngineIOEnvelope(Ping, Some(EngineIOStringPacket(m))) => Some(EngineIOEnvelope.heartbeat(Some(m)))
   }
@@ -138,6 +142,15 @@ case object Ping extends MessageType(2) {
 }
 case object Pong extends MessageType(3)
 case object Msg extends MessageType(4) {
+  override def payload(b:Array[Byte]):Option[EngineIOPacket] = {
+    SocketIOEnvelope.fromBytes(b) match {
+      case Success(s) => Some(EngineIOSocketIOPacket(s))
+      case Failure(t) => {
+        logger.error(t.getMessage, t)
+        None // TODO return Try[Option[EngineIOPacket]]
+      }
+    }
+  }
   override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = {
     e.data match {
       case Some(SocketIOEnvelope(msgType, data)) => {
@@ -171,6 +184,11 @@ case class EngineIOEmptyPacket() extends EngineIOPacket {
 case class EngineIOStringPacket(message:String) extends EngineIOPacket {
   def toBytes: Array[Byte] = message.getBytes(EngineIOEnvelope.UTF8)
   override def toString:String = message
+}
+
+case class EngineIOSocketIOPacket(socketIo:SocketIOEnvelope) extends EngineIOPacket {
+  def toBytes: Array[Byte] = socketIo.toBytes
+  override def toString:String = socketIo.toString
 }
 
 case class EngineIOPackets(packets:EngineIOEnvelope*) {

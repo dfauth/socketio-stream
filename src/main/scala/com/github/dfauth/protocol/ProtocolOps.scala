@@ -6,8 +6,9 @@ import scala.collection.mutable.ArrayBuffer
 
 trait ProtocolMessageType {
   val value:Int
-  def payload(b:Array[Byte]):Option[EngineIOPacket] = None
+  def payload(b:Array[Byte]):Option[EngineIOPacket] = ???
   def toByte: Byte = (value + 48).toByte
+  override def toString: String = value.toString
 }
 
 trait Bytable {
