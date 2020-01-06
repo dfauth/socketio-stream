@@ -3,13 +3,14 @@ package com.github.dfauth.socketio
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.{ActorSystem => TypedActorSystem}
+import akka.actor.typed.{ActorRef, ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.typed.scaladsl.ActorFlow
 import akka.util.{ByteString, Timeout}
 import com.github.dfauth.actor.ActorUtils._
 import com.github.dfauth.actor._
@@ -29,7 +30,8 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe ~ static
 
-  val supervisor = TypedActorSystem[Command](Supervisor(), "socket_io")
+  val typedSystem = TypedActorSystem[Command](Supervisor(), "socket_io")
+  val supervisor:ActorRef[Command] = typedSystem
 
   def octetStream(source: Source[ByteString, NotUsed]): ToResponseMarshallable = HttpResponse(entity = HttpEntity.Chunked.fromData(ContentTypes.`application/octet-stream`, source))
 
@@ -63,7 +65,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
           parameters('transport, 'EIO, 'sid.?) { // sid is optional in the initial GET
             (transport, eio, sid) =>
               implicit val timeout: Timeout = 3.seconds
-              implicit val scheduler = supervisor.scheduler
+              implicit val scheduler = typedSystem.scheduler
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
                   handleWebSocketMessages {

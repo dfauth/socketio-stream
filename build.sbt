@@ -33,6 +33,7 @@ val playSocketIo = "com.lightbend.play" %% "play-socket-io" % "1.0.0-beta-2"
 val guice = "com.google.inject" % "guice" % "4.2.2"
 val socketioClient = "io.socket" % "socket.io-client" % "1.0.0" % Test
 val akkaTyped = "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion
+val akkaStreamTyped = "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion
 
 
 val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging, logback)
@@ -42,7 +43,7 @@ lazy val root = (project in file("."))
   .settings(
     libraryDependencies ++= commonScalaDeps ++ Seq(
       akkaHttp,
-      akkaStream,
+      akkaStreamTyped,
       akkaTyped,
       guice,
 //      kafkaCore,
