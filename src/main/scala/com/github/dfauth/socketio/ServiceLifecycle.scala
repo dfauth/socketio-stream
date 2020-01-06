@@ -39,3 +39,9 @@ trait ServiceLifecycle extends LazyLogging {
   }
 
 }
+
+abstract class ServiceLifecycleImpl(override val system:ActorSystem,
+                                    override val materializer: ActorMaterializer,
+                                    override val hostname:String = "0.0.0.0",
+                                    override val port:Int = 8080,
+                                    override val sslConfig: Option[SslConfig] = None) extends ServiceLifecycle

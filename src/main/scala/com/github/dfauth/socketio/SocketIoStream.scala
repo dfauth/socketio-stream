@@ -10,7 +10,6 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Source}
-import akka.stream.typed.scaladsl.ActorFlow
 import akka.util.{ByteString, Timeout}
 import com.github.dfauth.actor.ActorUtils._
 import com.github.dfauth.actor._
@@ -28,7 +27,7 @@ import scala.util.{Failure, Success, Try}
 class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) extends LazyLogging {
 
   val config = SocketIOConfig(ConfigFactory.load())
-  val route = subscribe ~ static
+  val route = subscribe
 
   val typedSystem = TypedActorSystem[Command](Supervisor(), "socket_io")
   val supervisor:ActorRef[Command] = typedSystem
@@ -116,13 +115,6 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
 
     }
   }
-
-  def static =
-    path("") {
-      getFromResource("static/index.html")
-    } ~ pathPrefix("") {
-      getFromResourceDirectory("static")
-    }
 }
 
 trait UserContext[U] {
