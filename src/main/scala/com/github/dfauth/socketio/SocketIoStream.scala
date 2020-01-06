@@ -80,8 +80,9 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                 case activeTransport@Polling => {
                   val f:Future[EngineIOEnvelope] = sid match {
                     case None => {
-                      supervisor ! CreateSession(userCtx)
-                      Future(EngineIOEnvelope.open(userCtx.token, config, activeTransport))
+                      askActor {
+                        supervisor ? CreateSession(userCtx)
+                      }.map {r => EngineIOEnvelope.open(userCtx.token, config, activeTransport) }
                     }
                     case Some(v) => {
                       askActor{

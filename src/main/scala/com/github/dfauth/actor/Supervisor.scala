@@ -17,13 +17,13 @@ class Supervisor(ctx: ActorContext[Command]) extends AbstractBehavior[Command](c
   override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"supervisor received message ${msg}")
     msg match {
-      case CreateSession(userCtx) => {
-        cache.get(userCtx.token).map { ref =>
+      case CreateSessionCommand(id, userCtx, replyTo) => {
+        cache.get(id).map { ref =>
           logger.info(s"existing session - ignoring")
         } getOrElse {
-          val id = userCtx.token
           val ref = ctx.spawn[Command](SessionManager(userCtx), id)
           cache = cache + (id -> ref)
+          replyTo ! CreateSessionReply(id)
           ref
         }
       }

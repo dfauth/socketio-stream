@@ -9,9 +9,11 @@ trait Command {
 }
 
 trait SupervisorCommand extends Command
-case class CreateSession[U](userCtx:UserContext[U]) extends Command {
-  val id:String = userCtx.token
+case class CreateSession[U](userCtx:UserContext[U]) extends AskSupport[CreateSessionCommand[U], CreateSessionReply] {
+  override def apply(ref:ActorRef[CreateSessionReply]) = CreateSessionCommand(userCtx.token, userCtx, ref)
 }
+case class CreateSessionReply(id:String) extends Command
+case class CreateSessionCommand[U](id:String, userCtx:UserContext[U], replyTo: ActorRef[CreateSessionReply]) extends Command with AskCommand[CreateSessionReply]
 case class AddNamespace(id:String, namespace:String) extends Command
 case class EndSession(id:String) extends Command
 case class FetchSession(id:String) extends AskSupport[FetchSessionCommand, FetchSessionReply] {
