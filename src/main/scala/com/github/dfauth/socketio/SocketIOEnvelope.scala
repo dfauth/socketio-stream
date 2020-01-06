@@ -101,7 +101,7 @@ case class SocketIOEnvelope(messageType:MessageType, data:Option[SocketIOPacket]
 
 case class SocketIOPacket(namespace:String, payload:Option[String] = None) extends Bytable {
   def toBytes: Array[Byte] = namespace.getBytes(EngineIOEnvelope.UTF8)
-  override def toString:String = namespace + ","+payload.getOrElse("")
+  override def toString:String = payload.map(namespace+","+_).getOrElse(namespace)
 }
 
 object SocketIOPacket extends LazyLogging {
