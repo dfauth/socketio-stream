@@ -9,9 +9,13 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
+trait AskCommand[T] {
+  val replyTo:ActorRef[T]
+}
+
 object ActorUtils extends LazyLogging {
 
-  type AskSupport[Req, Res] = ActorRef[Res] => Req
+  type AskSupport[Req <: AskCommand[Res], Res] = ActorRef[Res] => Req
 
   type Bootstrapper[T] = Behavior[T] => ActorRef[T]
 
