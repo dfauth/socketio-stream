@@ -23,12 +23,15 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U]) exte
         Behaviors.same
       }
       case FetchSessionCommand(id, replyTo) => {
-        namespaces.headOption.map(replyTo ! FetchSessionReply(id, _))
+        namespaces.headOption.map(replyTo ! FetchSessionReply(id, _, ctx.self))
         Behaviors.same
       }
       case EndSession(id) => {
         logger.info(s"session ${id} stopped")
         Behaviors.stopped
+      }
+      case PingCommand(id) => {
+        Behaviors.same
       }
       case x => {
         logger.error(s"received unhandled message ${x}")
