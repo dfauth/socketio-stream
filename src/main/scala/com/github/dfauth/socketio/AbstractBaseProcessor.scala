@@ -1,11 +1,12 @@
 package com.github.dfauth.socketio
 
+import com.github.dfauth.utils.TryCatchUtils
+import com.github.dfauth.utils.TryCatchUtils._
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.{Processor, Subscriber, Subscription}
 
 trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
 
-  val f:I => O
   var subscriber:Option[Subscriber[_ >: O]] = None
   var subscription:Option[Subscription] = None
 
@@ -29,12 +30,17 @@ trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
       subscription.map(s.onSubscribe(_))
     })
   }
+}
+
+class FunctionProcessor[I, O](val f:I => O) extends AbstractBaseProcessor[I, O] {
 
   override def onNext(t: I): Unit = {
     subscriber.map(i => {
-      val o = f(t)
-      logger.info(s"onNext: ${i} => ${o}")
-      i.onNext(o)
+      tryCatch {
+        val o = f(t)
+        logger.info(s"onNext: ${i} => ${o}")
+        i.onNext(o)
+      }()
     })
   }
 }

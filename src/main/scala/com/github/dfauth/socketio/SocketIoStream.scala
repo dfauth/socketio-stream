@@ -78,11 +78,12 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     }
   }
 
-  def messageToEngineIoEnvelopeTransformer():Flow[Message, EngineIOEnvelope, NotUsed] = Flow.fromProcessor(() => new MessageToEngineIoEnvelopeProcessor(m => unwrap(m) match {
+  def messageToEngineIoEnvelopeTransformer():Flow[Message, EngineIOEnvelope, NotUsed] = Flow.fromProcessor(() => new FunctionProcessor[Message, EngineIOEnvelope](m => unwrap(m) match {
     case Success(s) => s
 //    case Failure(t) => logger.error(t.getMessage, t)
   }))
-  def engineIoEnvelopeToCommandTransformer(userCtx:UserContext[U]):Flow[EngineIOEnvelope, Command, NotUsed] = Flow.fromProcessor(() => new EngineIoEnvelopeToCommandProcessor(e => e.messageType.toActorMessage(userCtx, e)))
+
+  def engineIoEnvelopeToCommandTransformer(userCtx:UserContext[U]):Flow[EngineIOEnvelope, Command, NotUsed] = Flow.fromProcessor(() => new FunctionProcessor[EngineIOEnvelope, Command](e => e.messageType.toActorMessage(userCtx, e)))
 
   def subscribe = {
     path("socket.io" / ) { concat(

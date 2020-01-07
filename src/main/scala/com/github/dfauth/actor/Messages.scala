@@ -20,7 +20,7 @@ case class FetchSession(id:String) extends AskSupport[FetchSessionCommand, Fetch
   override def apply(ref:ActorRef[FetchSessionReply]) = FetchSessionCommand(id, ref)
 }
 case class FetchSessionCommand(id:String, replyTo:ActorRef[FetchSessionReply]) extends Command with AskCommand[FetchSessionReply]
-case class FetchSessionReply(id:String, namespaces:List[String]) extends Command
+case class FetchSessionReply(id:String, namespaces:List[String], ref:ActorRef[Command]) extends Command
 case class ErrorMessage(id:String, t:Throwable) extends Command
 case class StreamComplete(id:String) extends Command
 case class PingCommand(id:String) extends Command
