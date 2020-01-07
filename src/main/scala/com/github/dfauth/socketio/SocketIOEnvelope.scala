@@ -83,6 +83,10 @@ object SocketIOEnvelope extends LazyLogging {
   def connect(namespace:String) = {
     SocketIOEnvelope(Connect, Some(SocketIOPacket(namespace)))
   }
+
+  def connect() = {
+    SocketIOEnvelope(Connect, None)
+  }
 }
 
 case class SocketIOEnvelope(messageType:MessageType, data:Option[SocketIOPacket] = None) extends Bytable {

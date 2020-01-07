@@ -128,7 +128,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                     case Some(v) => {
                       askActor{
                         supervisor ? FetchSession(v)
-                      }.map {r => EngineIOEnvelope.connect(r.namespace)}
+                      }.map {r => r.namespaces.headOption.map(EngineIOEnvelope.connect(_)).getOrElse(EngineIOEnvelope.connect())}
                     }
                   }
                   complete(octetStream(Source.fromPublisher(DelayedClosePublisher(f.map {v => ByteString(EngineIOPackets(v).toBytes)}, config.longPollTimeout))))

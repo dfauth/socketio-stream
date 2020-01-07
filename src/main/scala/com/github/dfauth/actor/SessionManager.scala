@@ -23,7 +23,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U]) exte
         Behaviors.same
       }
       case FetchSessionCommand(id, replyTo) => {
-        namespaces.headOption.map(replyTo ! FetchSessionReply(id, _, ctx.self))
+        replyTo ! FetchSessionReply(id, namespaces)
         Behaviors.same
       }
       case EndSession(id) => {
