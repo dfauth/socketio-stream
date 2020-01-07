@@ -71,6 +71,7 @@ object EngineIOEnvelope extends LazyLogging {
 
   def open(sid:String, config:SocketIOConfig, activeTransport:EngineIOTransport):EngineIOEnvelope = EngineIOEnvelope(Open, Some(EngineIOSessionInitPacket(sid, config.transportsFiltering(activeTransport), config.pingInterval.get(ChronoUnit.SECONDS)*1000, config.pingTimeout.get(ChronoUnit.SECONDS)*1000)))
   def connect(message:String):EngineIOEnvelope = EngineIOEnvelope(Msg, Some(SocketIOEnvelope.connect(message)))
+  def connect():EngineIOEnvelope = EngineIOEnvelope(Msg, Some(SocketIOEnvelope.connect()))
   def heartbeat(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Pong, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Pong))
   def error(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Error, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Error))
 
