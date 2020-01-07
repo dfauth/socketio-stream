@@ -78,12 +78,9 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     }
   }
 
-  def messageToEngineIoEnvelopeTransformer():Flow[Message, EngineIOEnvelope, NotUsed] = Flow.fromProcessor(() => new FunctionProcessor[Message, EngineIOEnvelope](m => unwrap(m) match {
-    case Success(s) => s
-//    case Failure(t) => logger.error(t.getMessage, t)
-  }))
+  def messageToEngineIoEnvelopeProcessor():Flow[Message, EngineIOEnvelope, NotUsed] = Flow.fromProcessor(() => new TryFunctionProcessor[Message, EngineIOEnvelope](unwrap))
 
-  def engineIoEnvelopeToCommandTransformer(userCtx:UserContext[U]):Flow[EngineIOEnvelope, Command, NotUsed] = Flow.fromProcessor(() => new FunctionProcessor[EngineIOEnvelope, Command](e => e.messageType.toActorMessage(userCtx, e)))
+  def engineIoEnvelopeToCommandProcessor(userCtx:UserContext[U]):Flow[EngineIOEnvelope, Command, NotUsed] = Flow.fromProcessor(() => new FunctionProcessor[EngineIOEnvelope, Command](e => e.messageType.toActorMessage(userCtx, e)))
 
   def subscribe = {
     path("socket.io" / ) { concat(
@@ -106,7 +103,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                     )
                   }
                   handleWebSocketMessages {
-                  val sink:Sink[Message, NotUsed] = messageToEngineIoEnvelopeTransformer().via(engineIoEnvelopeToCommandTransformer(userCtx)).to(Sink.futureSink[Command, NotUsed](fSink))
+                  val sink:Sink[Message, NotUsed] = messageToEngineIoEnvelopeProcessor().via(engineIoEnvelopeToCommandProcessor(userCtx)).to(Sink.futureSink[Command, NotUsed](fSink))
                   val source = Source.empty
 //                    val tmp:Message => Option[Message] = (m:Message) => unwrap(m) match {
 //                      case Success(e) => handleEngineIOMessage(e).map(v => TextMessage.Strict(v.toString))

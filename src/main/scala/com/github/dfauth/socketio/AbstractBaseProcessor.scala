@@ -5,6 +5,8 @@ import com.github.dfauth.utils.TryCatchUtils._
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.{Processor, Subscriber, Subscription}
 
+import scala.util.{Failure, Success, Try}
+
 trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
 
   var subscriber:Option[Subscriber[_ >: O]] = None
@@ -27,19 +29,54 @@ trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
   private def init(): Unit = {
     subscriber.flatMap(s => {
       logger.info("subscribed")
-      subscription.map(s.onSubscribe(_))
+      subscription.map(q => s.onSubscribe(q))
     })
   }
 }
 
 class FunctionProcessor[I, O](val f:I => O) extends AbstractBaseProcessor[I, O] {
 
-  override def onNext(t: I): Unit = {
-    subscriber.map(i => {
+  override def onNext(i: I): Unit = {
+    subscriber.foreach(s => {
       tryCatch {
-        val o = f(t)
+        val o = f(i)
         logger.info(s"onNext: ${i} => ${o}")
-        i.onNext(o)
+        s.onNext(o)
+      }()
+    })
+  }
+}
+
+class TryFunctionProcessor[I, O](val f:I => Try[O]) extends AbstractBaseProcessor[I, O] {
+
+  override def onNext(i: I): Unit = {
+    subscriber.foreach(s => {
+      tryCatch[Unit] {
+        f(i) match {
+          case Success(o) => {
+            logger.info(s"onNext: ${i} => ${o}")
+            s.onNext(o)
+          }
+          case Failure(t) => {
+            logger.error(t.getMessage, t)
+            s.onError(t)
+          }
+        }
+      } ()
+    })
+  }
+}
+
+class PartialFunctionProcessor[I, O](val f:PartialFunction[I, O]) extends AbstractBaseProcessor[I, O] {
+
+  override def onNext(i: I): Unit = {
+    subscriber.foreach(s => {
+      tryCatch {
+        if(f.isDefinedAt(i)) {
+          val o = f(i)
+          logger.info(s"onNext: ${i} => ${o}")
+          s.onNext(o)
+        }
       }()
     })
   }
