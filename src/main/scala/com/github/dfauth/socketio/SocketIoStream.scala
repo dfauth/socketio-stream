@@ -5,12 +5,11 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model.ws.Message
 import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.RouteResult.Complete
 import akka.stream._
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{BidiFlow, Flow, Sink, Source}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.typed.scaladsl.{ActorSink, ActorSource}
 import akka.util.{ByteString, Timeout}
@@ -50,31 +49,6 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
       parameters('sid) { t =>
         handleValidation(t)
       }
-    }
-  }
-  def blah(): Graph[FlowShape[Message, Message], NotUsed] = new GraphStage[FlowShape[Message, Message]] {
-    val in: Inlet[Message] = Inlet("inlet")
-    val out: Outlet[Message] = Outlet("outlet")
-    override val shape: FlowShape[Message, Message] = FlowShape(in, out)
-    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {
-      // All state MUST be inside the GraphStageLogic,
-      // never inside the enclosing GraphStage.
-      // This state is safe to access and modify from all the
-      // callbacks that are provided by GraphStageLogic and the
-      // registered handlers.
-      setHandler(out, new OutHandler {
-        override def onPull(): Unit = {
-          push(out, grab(in))
-          logger.info(s"blah(): onPull")
-          //          push(out, counter)
-        }
-      })
-      setHandler(in, new InHandler {
-        override def onPush(): Unit = {
-          pull(in)
-          logger.info(s"blah(): onPush")
-        }
-      })
     }
   }
 

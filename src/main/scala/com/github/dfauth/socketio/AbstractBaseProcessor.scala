@@ -47,6 +47,19 @@ class FunctionProcessor[I, O](val f:I => O) extends AbstractBaseProcessor[I, O] 
   }
 }
 
+class FilteringProcessor[I](val f:I => Boolean) extends AbstractBaseProcessor[I, I] {
+
+  override def onNext(i: I): Unit = {
+    subscriber.foreach(s => {
+      tryCatch {
+        if(f(i)) {
+          s.onNext(i)
+        }
+      }()
+    })
+  }
+}
+
 class TryFunctionProcessor[I, O](val f:I => Try[O]) extends AbstractBaseProcessor[I, O] {
 
   override def onNext(i: I): Unit = {
@@ -80,4 +93,5 @@ class PartialFunctionProcessor[I, O](val f:PartialFunction[I, O]) extends Abstra
       }()
     })
   }
+
 }
