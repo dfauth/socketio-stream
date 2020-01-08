@@ -98,8 +98,8 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                   }.map {r => r.ref}
                   val fSink:Future[Sink[Command, NotUsed]] = ref.map[Sink[Command, NotUsed]] { r =>
                     ActorSink.actorRef[Command](r,
-                      StreamComplete(id), // onCompleteMessage: T,
-                      t => ErrorMessage(id, t) // onFailureMessage: Throwable => T
+                      StreamComplete(id),
+                      t => ErrorMessage(id, t)
                     )
                   }
                   handleWebSocketMessages {
@@ -108,15 +108,10 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
 
                     source2.to(Sink.futureSink[Command, NotUsed](fSink)).run()
 
-//                    val sink:Sink[Message, NotUsed] = messageToEngineIoEnvelopeProcessor().
-//                                                        via(engineIoEnvelopeToCommandProcessor(userCtx)).
-//                                                        to(Sink.futureSink[Command, NotUsed](fSink))
-
                     val (source, graph) = shortCircuit(source1, sink2)
                     val f = Flow.fromSinkAndSource(sink1, source.map(v => TextMessage.Strict(v.toString)))
                     graph.run()
                     f
-//                    Flow.fromSinkAndSource(sink1, source1)
                   }
                 }
                 case activeTransport@Polling => {

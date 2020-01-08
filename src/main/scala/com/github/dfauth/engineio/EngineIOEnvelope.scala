@@ -7,12 +7,11 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
-import com.github.dfauth.actor.{Command, EndSession, PingCommand, PongCommand}
+import com.github.dfauth.actor.{Command, EndSession}
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
 import com.github.dfauth.socketio.{Ack, SocketIOConfig, SocketIOEnvelope, UserContext}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
-import sun.util.logging.resources.logging
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -157,10 +156,8 @@ case object Close extends MessageType(1) {
 }
 case object Ping extends MessageType(2) {
   override def payload(b:Array[Byte]):Option[EngineIOPacket] = Some(EngineIOStringPacket((b.map(_.toChar)).mkString))
-  override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = PingCommand(ctx.token)
 }
 case object Pong extends MessageType(3) {
-  override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = PongCommand(ctx.token)
 }
 case object Msg extends MessageType(4) {
   override def payload(b:Array[Byte]):Option[EngineIOPacket] = {

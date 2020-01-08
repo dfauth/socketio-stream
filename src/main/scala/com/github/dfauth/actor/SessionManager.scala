@@ -30,9 +30,6 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U]) exte
         logger.info(s"session ${id} stopped")
         Behaviors.stopped
       }
-      case PingCommand(id) => {
-        Behaviors.same
-      }
       case x => {
         logger.error(s"received unhandled message ${x}")
         Behaviors.unhandled
