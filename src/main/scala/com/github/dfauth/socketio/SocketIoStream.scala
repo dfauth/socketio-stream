@@ -16,7 +16,7 @@ import com.github.dfauth.actor.ActorUtils._
 import com.github.dfauth.actor._
 import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.engineio.EngineIOEnvelope._
-import com.github.dfauth.engineio.{EngineIOEnvelope, _}
+import com.github.dfauth.engineio.{EngineIOEnvelope, Upgrade, _}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.utils.ShortCircuit
 import com.typesafe.config.ConfigFactory
@@ -77,8 +77,8 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
   def shortCircuit(src:Source[EngineIOEnvelope, NotUsed], sink:Sink[EngineIOEnvelope, NotUsed]) = {
     ShortCircuit[EngineIOEnvelope, EngineIOEnvelope](src,
       sink,
-      handleEngineIOHeartbeat,
-      true
+      handleEngineIOMessages,
+      handleEngineIOHeartbeat
     )
   }
 
@@ -106,9 +106,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                     val(sink1, source1) = sinkAndSourceOf(messageToEngineIoEnvelopeProcessor())
                     val(sink2, source2) = sinkAndSourceOf(engineIoEnvelopeToCommandProcessor(userCtx))
 
-                    source2.to(Sink.foreach { i =>
-                      logger.info(s"ignoring ${i}")
-                    }).run() // TODO
+                    source2.to(Sink.futureSink[Command, NotUsed](fSink)).run()
 
 //                    val sink:Sink[Message, NotUsed] = messageToEngineIoEnvelopeProcessor().
 //                                                        via(engineIoEnvelopeToCommandProcessor(userCtx)).

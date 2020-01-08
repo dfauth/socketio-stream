@@ -9,7 +9,7 @@ import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
 import com.github.dfauth.actor.{Command, EndSession, PingCommand, PongCommand}
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
-import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope, UserContext}
+import com.github.dfauth.socketio.{Ack, SocketIOConfig, SocketIOEnvelope, UserContext}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 import sun.util.logging.resources.logging
@@ -117,6 +117,11 @@ object EngineIOEnvelope extends LazyLogging {
       logger.info(s"handleEngineIOHeartbeat received Ping${m}")
       EngineIOEnvelope.heartbeat(Some(m))
     }
+  }
+
+  def handleEngineIOMessages: EngineIOEnvelope => Boolean = {
+    case EngineIOEnvelope(Msg, _) => true
+    case _ => false
   }
 
 }

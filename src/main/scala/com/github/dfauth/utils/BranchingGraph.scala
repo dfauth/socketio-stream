@@ -19,8 +19,8 @@ object BranchingGraph extends LazyLogging {
 
     val bcast = b.add(Broadcast[T](2))
     src ~> bcast.in
-    bcast.out(0) ~> Flow[T].filter(predicate).via(log("WOOZ upper")) ~> sink
-    bcast.out(1) ~> Flow[T].filterNot(predicate).via(log("WOOZ lower")) ~> sink2
+    bcast.out(0) ~> Flow[T].filter(predicate) ~> sink
+    bcast.out(1) ~> Flow[T].filterNot(predicate) ~> sink2
     ClosedShape
   })
 }
@@ -39,24 +39,17 @@ object MergingGraph {
 }
 
 object ShortCircuit {
-  def apply[T,U](topSrc:Source[T, NotUsed], topSink:Sink[T, NotUsed], pf: PartialFunction[T,U], invert:Boolean = false):Tuple2[Source[U, NotUsed], RunnableGraph[NotUsed]] = {
+
+  def apply[T,U](topSrc:Source[T, NotUsed], topSink:Sink[T, NotUsed], pf: PartialFunction[T,U]):Tuple2[Source[U, NotUsed], RunnableGraph[NotUsed]] = {
+    val predicate:T=>Boolean = (t:T) => !pf.isDefinedAt(t)
+    apply(topSrc, topSink, predicate, pf)
+  }
+
+  def apply[T,U](topSrc:Source[T, NotUsed], topSink:Sink[T, NotUsed], predicate:T => Boolean, pf: PartialFunction[T,U]):Tuple2[Source[U, NotUsed], RunnableGraph[NotUsed]] = {
     val processor:Processor[T,U] = PartialFunctionProcessor(pf, "shortCircuit")
     val internalSink:Sink[T, NotUsed] = Sink.fromSubscriber(processor)
-    val logic:T=>Boolean = if(invert){
-      (t:T) => !pf.isDefinedAt(t)
-    } else {
-      pf.isDefinedAt
-    }
-    val graph = BranchingGraph(topSrc, logic, topSink, internalSink)
+    val graph = BranchingGraph(topSrc, predicate, topSink, internalSink)
     val internalSource = Source.fromPublisher(processor)
     (internalSource, graph)
   }
-//  def apply[T,U](src:Source[T, NotUsed], sink:Sink[T, NotUsed], pf: PartialFunction[T,U], src2:Source[U, NotUsed], sink2:Sink[U, NotUsed]) = {
-//    val processor:Processor[T,U] = new PartialFunctionProcessor(pf)
-//    val internalSource:Source[U, NotUsed] = Source.fromPublisher(processor)
-//    val internalSink:Sink[T, NotUsed] = Sink.fromSubscriber(processor)
-//    val top = BranchingGraph(src, pf.isDefinedAt, sink, internalSink)
-//    val bottom = MergingGraph(src2, internalSource, sink2)
-//    (Flow.fromSinkAndSource(sink, src), Flow.fromSinkAndSource(sink2, src2))
-//  }
 }
