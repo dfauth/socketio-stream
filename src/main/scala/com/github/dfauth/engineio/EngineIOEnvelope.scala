@@ -7,9 +7,9 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
-import com.github.dfauth.actor.{Command, EndSession}
+import com.github.dfauth.actor.{Command, EndSession, ErrorMessage}
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
-import com.github.dfauth.socketio.{Ack, SocketIOConfig, SocketIOEnvelope, UserContext}
+import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope, UserContext}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
@@ -171,9 +171,14 @@ case object Msg extends MessageType(4) {
   }
   override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = {
     e.data match {
-      case Some(SocketIOEnvelope(msgType, data)) => {
+      case Some(EngineIOSocketIOPacket(SocketIOEnvelope(msgType, data))) => {
         logger.info(s"SocketIOEnvelope contains: ${msgType} ${data}")
         msgType.toActorMessage(ctx, data)
+      }
+      case x => {
+        val e = new RuntimeException(s"Unexpected message type: ${x}")
+        logger.error(e.getMessage, e)
+        ErrorMessage(ctx.token, e)
       }
     }
   }

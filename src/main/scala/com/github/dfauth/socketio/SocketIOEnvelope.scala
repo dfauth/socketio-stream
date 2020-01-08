@@ -1,6 +1,6 @@
 package com.github.dfauth.socketio
 
-import com.github.dfauth.actor.{AddNamespace, Command}
+import com.github.dfauth.actor.{AddNamespace, Command, ErrorMessage, EventCommand}
 import com.github.dfauth.engineio._
 import com.github.dfauth.protocol.{Bytable, ProtocolMessageType}
 import com.typesafe.scalalogging.LazyLogging
@@ -32,7 +32,14 @@ case object Connect extends MessageType(0) {
   }
 }
 case object Disconnect extends MessageType(1)
-case object Event extends MessageType(2)
+case object Event extends MessageType(2) {
+  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = {
+    data.map { e => {
+      e.payload.map { f => EventCommand(ctx.token, Some(f)) } getOrElse { EventCommand(ctx.token) }
+
+    } }.getOrElse { ErrorMessage(ctx.token, new RuntimeException("Oops"))}
+  }
+}
 case object Ack extends MessageType(3)
 case object Error extends MessageType(4)
 case object BinaryEvent extends MessageType(5)

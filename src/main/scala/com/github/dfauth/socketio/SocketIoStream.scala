@@ -115,19 +115,21 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                   }
                 }
                 case activeTransport@Polling => {
-                  val f:Future[EngineIOEnvelope] = sid match {
+                  val f:Future[EngineIOPackets] = sid match {
                     case None => {
                       askActor {
-                        supervisor ? CreateSession(userCtx)
-                      }.map {r => EngineIOEnvelope.open(userCtx.token, config, activeTransport) }
+                        supervisor ? CreateSession(userCtx, config.namespaces)
+                      }.map {r => EngineIOPackets(EngineIOEnvelope.open(userCtx.token, config, activeTransport)) }
                     }
                     case Some(v) => {
                       askActor{
                         supervisor ? FetchSession(v)
-                      }.map {r => r.namespaces.headOption.map(EngineIOEnvelope.connect(_)).getOrElse(EngineIOEnvelope.connect())}
+                      }.map { r =>
+                        EngineIOPackets(r.namespaces.map(n => EngineIOEnvelope.connect(n)).toSeq:_*)
+                      }
                     }
                   }
-                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(f.map {v => ByteString(EngineIOPackets(v).toBytes)}, config.longPollTimeout))))
+                  complete(octetStream(Source.fromPublisher(DelayedClosePublisher(f.map {v => ByteString(v.toBytes)}, config.longPollTimeout))))
                 }
               }
           }
