@@ -5,27 +5,31 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.ws.Message
+import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
-import akka.stream._
-import akka.stream.scaladsl.{BidiFlow, Flow, Sink, Source}
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import akka.stream.typed.scaladsl.{ActorSink, ActorSource}
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.typed.scaladsl.ActorSink
 import akka.util.{ByteString, Timeout}
 import com.github.dfauth.actor.ActorUtils._
 import com.github.dfauth.actor._
+import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.engineio.EngineIOEnvelope._
-import com.github.dfauth.engineio._
+import com.github.dfauth.engineio.{EngineIOEnvelope, _}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
+import com.github.dfauth.utils.ShortCircuit
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import org.reactivestreams.Processor
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
+
 class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) extends LazyLogging {
+  implicit val materializer = Materializer.apply(system)
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe
   val typedSystem = TypedActorSystem[Command](Supervisor(), "socket_io")
@@ -52,9 +56,31 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     }
   }
 
-  def messageToEngineIoEnvelopeProcessor():Flow[Message, EngineIOEnvelope, NotUsed] = Flow.fromProcessor(() => new TryFunctionProcessor[Message, EngineIOEnvelope](unwrap))
+  def messageToEngineIoEnvelopeProcessor():Processor[Message, EngineIOEnvelope] = TryFunctionProcessor[Message, EngineIOEnvelope](unwrap, "m2e")
 
-  def engineIoEnvelopeToCommandProcessor(userCtx:UserContext[U]):Flow[EngineIOEnvelope, Command, NotUsed] = Flow.fromProcessor(() => new FunctionProcessor[EngineIOEnvelope, Command](e => e.messageType.toActorMessage(userCtx, e)))
+  def messageToEngineIoEnvelopeSink(processor:Processor[Message, EngineIOEnvelope]):Sink[Message, NotUsed] = Sink.fromSubscriber(processor)
+
+  def messageToEngineIoEnvelopeSource(processor:Processor[Message, EngineIOEnvelope]):Source[EngineIOEnvelope, NotUsed] = Source.fromPublisher(processor)
+
+  def messageToEngineIoEnvelopeFlow():Flow[Message, EngineIOEnvelope, NotUsed] = Flow.fromProcessor(() => messageToEngineIoEnvelopeProcessor())
+
+  def engineIoEnvelopeToCommandProcessor(userCtx:UserContext[U]):Processor[EngineIOEnvelope, Command] = FunctionProcessor[EngineIOEnvelope, Command]((e:EngineIOEnvelope) => e.messageType.toActorMessage(userCtx, e), "e2c")
+
+  def engineIoEnvelopeToCommandSink(processor:Processor[EngineIOEnvelope, Command]):Sink[EngineIOEnvelope, NotUsed] = Sink.fromSubscriber(processor)
+
+  def engineIoEnvelopeToCommandSource(processor:Processor[EngineIOEnvelope, Command]):Source[Command, NotUsed] = Source.fromPublisher(processor)
+
+  def engineIoEnvelopeToCommandFlow(processor:Processor[EngineIOEnvelope, Command]):Flow[EngineIOEnvelope, Command, NotUsed] = Flow.fromProcessor(() => processor)
+
+  def socketIoProcessor():Processor[EngineIOEnvelope, EngineIOEnvelope] = new PartialFunctionProcessor(handleEngineIOHeartbeat)
+
+  def shortCircuit(src:Source[EngineIOEnvelope, NotUsed], sink:Sink[EngineIOEnvelope, NotUsed]) = {
+    ShortCircuit[EngineIOEnvelope, EngineIOEnvelope](src,
+      sink,
+      handleEngineIOHeartbeat,
+      true
+    )
+  }
 
   def subscribe = {
     path("socket.io" / ) { concat(
@@ -77,17 +103,22 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                     )
                   }
                   handleWebSocketMessages {
-                  val sink:Sink[Message, NotUsed] = messageToEngineIoEnvelopeProcessor().via(engineIoEnvelopeToCommandProcessor(userCtx)).to(Sink.futureSink[Command, NotUsed](fSink))
-                  val source = Source.empty
-//                    val tmp:Message => Option[Message] = (m:Message) => unwrap(m) match {
-//                      case Success(e) => handleEngineIOMessage(e).map(v => TextMessage.Strict(v.toString))
-//                      case Failure(t) => {
-//                        logger.error(t.getMessage, t)
-//                        Some(TextMessage.Strict(EngineIOEnvelope.error(Some(t.getMessage)).toString))
-//                      }
-//                    }
-//                    Flow.fromProcessor(() => new HandshakeProcessor[Message, Message](tmp))
-                    Flow.fromSinkAndSource(sink, source)
+                    val(sink1, source1) = sinkAndSourceOf(messageToEngineIoEnvelopeProcessor())
+                    val(sink2, source2) = sinkAndSourceOf(engineIoEnvelopeToCommandProcessor(userCtx))
+
+                    source2.to(Sink.foreach { i =>
+                      logger.info(s"ignoring ${i}")
+                    }).run() // TODO
+
+//                    val sink:Sink[Message, NotUsed] = messageToEngineIoEnvelopeProcessor().
+//                                                        via(engineIoEnvelopeToCommandProcessor(userCtx)).
+//                                                        to(Sink.futureSink[Command, NotUsed](fSink))
+
+                    val (source, graph) = shortCircuit(source1, sink2)
+                    val f = Flow.fromSinkAndSource(sink1, source.map(v => TextMessage.Strict(v.toString)))
+                    graph.run()
+                    f
+//                    Flow.fromSinkAndSource(sink1, source1)
                   }
                 }
                 case activeTransport@Polling => {

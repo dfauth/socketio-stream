@@ -12,6 +12,7 @@ import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
 import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope, UserContext}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
+import sun.util.logging.resources.logging
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -105,6 +106,17 @@ object EngineIOEnvelope extends LazyLogging {
     } // ignore
     case EngineIOEnvelope(Ping, None) => Some(EngineIOEnvelope.heartbeat())
     case EngineIOEnvelope(Ping, Some(EngineIOStringPacket(m))) => Some(EngineIOEnvelope.heartbeat(Some(m)))
+  }
+
+  def handleEngineIOHeartbeat: PartialFunction[EngineIOEnvelope, EngineIOEnvelope] = {
+    case EngineIOEnvelope(Ping, None) => {
+      logger.info(s"handleEngineIOHeartbeat received Ping")
+      EngineIOEnvelope.heartbeat()
+    }
+    case EngineIOEnvelope(Ping, Some(EngineIOStringPacket(m))) => {
+      logger.info(s"handleEngineIOHeartbeat received Ping${m}")
+      EngineIOEnvelope.heartbeat(Some(m))
+    }
   }
 
 }
