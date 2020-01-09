@@ -175,6 +175,10 @@ case object Msg extends MessageType(4) {
         logger.info(s"SocketIOEnvelope contains: ${msgType} ${data}")
         msgType.toActorMessage(ctx, data)
       }
+      case Some(SocketIOEnvelope(msgType, data)) => {
+        logger.info(s"SocketIOEnvelope contains: ${msgType} ${data}")
+        msgType.toActorMessage(ctx, data)
+      }
       case x => {
         val e = new RuntimeException(s"Unexpected message type: ${x}")
         logger.error(e.getMessage, e)
