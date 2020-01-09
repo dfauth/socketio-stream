@@ -1,7 +1,10 @@
 package com.github.dfauth.actor
 
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
-import akka.actor.typed.{Behavior, PostStop, Signal}
+import akka.actor.typed.{ActorRef, Behavior, PostStop, Signal}
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.Source
+import akka.stream.typed.scaladsl.ActorSource
 import com.github.dfauth.socketio.UserContext
 import com.typesafe.scalalogging.LazyLogging
 
@@ -13,6 +16,14 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], name
 
   ctx.log.info(s"session manager started with user ctx: ${userCtx}")
 
+  def asSource[T](self: ActorRef[T]):Source[T, ActorRef[T]] =
+    ActorSource.actorRef(
+      { case StreamComplete(_) => },
+      { case ErrorMessage(_, t) => t},
+      0,
+      OverflowStrategy.fail
+    )
+
   override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"session manager received message ${msg}")
     msg match {
@@ -20,7 +31,8 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], name
         Behaviors.unhandled // cannot support this in stateless polling model
       }
       case FetchSessionCommand(id, replyTo) => {
-        replyTo ! FetchSessionReply(id, namespaces, ctx.self)
+        val src:Source[Command, ActorRef[Command]] = asSource[Command](ctx.self)
+        replyTo ! FetchSessionReply(id, namespaces, ctx.self, src)
         Behaviors.same
       }
       case EndSession(id) => {

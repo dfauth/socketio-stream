@@ -8,6 +8,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.util.Tuple
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.typed.scaladsl.ActorSink
@@ -18,7 +19,7 @@ import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.engineio.EngineIOEnvelope._
 import com.github.dfauth.engineio.{EngineIOEnvelope, Upgrade, _}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
-import com.github.dfauth.utils.ShortCircuit
+import com.github.dfauth.utils.{MergingGraph, ShortCircuit}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.Processor
@@ -82,6 +83,8 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     )
   }
 
+  def merge(src1:Source[EngineIOEnvelope, NotUsed], src2:Source[EngineIOEnvelope, NotUsed]) = MergingGraph(src1, src2)
+
   def subscribe = {
     path("socket.io" / ) { concat(
       get {
@@ -93,11 +96,13 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
                   val id = userCtx.token
-                  val ref:Future[ActorRef[Command]] = askActor{
+//                  val sink:Future[Tuple2[Sink[Command, NotUsed], Source[Command, ActorRef[Command]]]] = askActor {
+                  val fRef = askActor {
                     supervisor ? FetchSession(id)
-                  }.map {r => r.ref}
-                  val fSink:Future[Sink[Command, NotUsed]] = ref.map[Sink[Command, NotUsed]] { r =>
-                    ActorSink.actorRef[Command](r,
+                  }
+                  val fSrc:Future[Source[Command, ActorRef[Command]]] = fRef.map { reply => reply.src}
+                  val fSink:Future[Sink[Command, NotUsed]] = fRef.map {reply =>
+                    ActorSink.actorRef[Command](reply.ref,
                       StreamComplete(id),
                       t => ErrorMessage(id, t)
                     )
@@ -108,9 +113,11 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
 
                     source2.to(Sink.futureSink[Command, NotUsed](fSink)).run()
 
-                    val (source, graph) = shortCircuit(source1, sink2)
-                    val f = Flow.fromSinkAndSource(sink1, source.map(v => TextMessage.Strict(v.toString)))
-                    graph.run()
+                    val (source, graph1) = shortCircuit(source1, sink2)
+                    val (mergedSource, graph2) = MergingGraph[EngineIOEnvelope](source, Source.futureSource(fSrc).asInstanceOf[Source[EngineIOEnvelope, NotUsed]])
+                    val f = Flow.fromSinkAndSource(sink1, mergedSource.map(v => TextMessage.Strict(v.toString)))
+                    graph1.run()
+                    graph2.run()
                     f
                   }
                 }

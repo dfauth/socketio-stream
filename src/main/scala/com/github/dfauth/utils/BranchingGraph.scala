@@ -27,15 +27,23 @@ object BranchingGraph extends LazyLogging {
 
 object MergingGraph {
 
-  def apply[T](src:Source[T, NotUsed], src2:Source[T, NotUsed], sink:Sink[T, NotUsed]) = RunnableGraph.fromGraph(GraphDSL.create() { implicit b =>
-    import akka.stream.scaladsl.GraphDSL.Implicits._
+  def apply[T](src:Source[T, NotUsed], src2:Source[T, NotUsed]) = {
 
-    val merge = b.add(Merge[T](2))
-    src ~> merge.in(0)
-    src2 ~> merge.in(1)
-    merge.out ~> sink
-    ClosedShape
-  })
+    val processor = FunctionProcessor[T]()
+    val sink = Sink.fromSubscriber(processor)
+    val internalSrc = Source.fromPublisher(processor)
+
+    val graph = RunnableGraph.fromGraph(GraphDSL.create() { implicit b =>
+      import akka.stream.scaladsl.GraphDSL.Implicits._
+
+      val merge = b.add(Merge[T](2))
+      src ~> merge.in(0)
+      src2 ~> merge.in(1)
+      merge.out ~> sink
+      ClosedShape
+    })
+    (internalSrc, graph)
+  }
 }
 
 object ShortCircuit {
