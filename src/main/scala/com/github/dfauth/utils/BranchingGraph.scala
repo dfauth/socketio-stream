@@ -9,11 +9,6 @@ import org.reactivestreams.Processor
 
 object BranchingGraph extends LazyLogging {
 
-  def log[T](msg:String):Flow[T, T, NotUsed] = Flow.fromFunction(i => {
-    logger.info(s"${msg} payload: ${i}")
-    i
-  })
-
   def apply[T](src:Source[T, NotUsed], predicate:T => Boolean, sink:Sink[T, NotUsed], sink2:Sink[T, NotUsed]):RunnableGraph[NotUsed] = RunnableGraph.fromGraph(GraphDSL.create() { implicit b =>
     import akka.stream.scaladsl.GraphDSL.Implicits._
 

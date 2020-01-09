@@ -16,7 +16,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], name
 
   ctx.log.info(s"session manager started with user ctx: ${userCtx}")
 
-  def asSource[T](self: ActorRef[T]):Source[T, ActorRef[T]] =
+  def asSource[T]():Source[T, ActorRef[T]] =
     ActorSource.actorRef(
       { case StreamComplete(_) => },
       { case ErrorMessage(_, t) => t},
@@ -31,8 +31,11 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], name
         Behaviors.unhandled // cannot support this in stateless polling model
       }
       case FetchSessionCommand(id, replyTo) => {
-        val src:Source[Command, ActorRef[Command]] = asSource[Command](ctx.self)
+        val src:Source[Command, ActorRef[Command]] = asSource[Command]()
         replyTo ! FetchSessionReply(id, namespaces, ctx.self, src)
+        Behaviors.same
+      }
+      case EventCommand(id, payload) => {
         Behaviors.same
       }
       case EndSession(id) => {
