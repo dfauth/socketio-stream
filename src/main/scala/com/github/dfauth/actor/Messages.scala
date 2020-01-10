@@ -1,7 +1,8 @@
 package com.github.dfauth.actor
 
+import akka.NotUsed
 import akka.actor.typed.ActorRef
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.github.dfauth.actor.ActorUtils.AskSupport
 import com.github.dfauth.socketio.UserContext
 
@@ -21,7 +22,8 @@ case class FetchSession(id:String) extends AskSupport[FetchSessionCommand, Fetch
   override def apply(ref:ActorRef[FetchSessionReply]) = FetchSessionCommand(id, ref)
 }
 case class FetchSessionCommand(id:String, replyTo:ActorRef[FetchSessionReply]) extends Command with AskCommand[FetchSessionReply]
-case class FetchSessionReply(id:String, namespaces:Iterable[String], ref:ActorRef[Command], src:Source[Command, ActorRef[Command]]) extends Command
+case class FetchSessionReply(id:String, namespaces:Iterable[String], ref:ActorRef[Command], src:Source[Command, NotUsed]) extends Command
 case class ErrorMessage(id:String, t:Throwable) extends Command
-case class EventCommand(id:String, payload:Option[String] = None) extends Command
+case class EventCommand(id:String, namespace:String, payload:Option[String] = None) extends Command
+case class MessageCommand[T](id:String, namespace:String, payload:T) extends Command
 case class StreamComplete(id:String) extends Command

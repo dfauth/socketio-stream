@@ -13,6 +13,9 @@ import org.reactivestreams.{Processor, Subscriber, Subscription}
 import scala.util.{Failure, Success, Try}
 
 object Processors {
+
+  def sinkToSource[T]:(Sink[T, NotUsed], Source[T, NotUsed]) = sinkAndSourceOf(FunctionProcessor[T]())
+
   def sinkAndSourceOf[I,O](processor:Processor[I,O]) = {
     val sink:Sink[I, NotUsed] = Sink.fromSubscriber(processor)
     val source:Source[O, NotUsed] = Source.fromPublisher(processor)
@@ -29,7 +32,7 @@ trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
 
   override def onSubscribe(s: Subscription): Unit = {
     subscription = Some(s)
-    logger.info(withName("onSubscribe"))
+    logger.debug(withName("onSubscribe"))
     init()
   }
 
@@ -39,7 +42,7 @@ trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
 
   override def subscribe(s: Subscriber[_ >: O]): Unit = {
     subscriber = Some(s)
-    logger.info(withName("subscribe"))
+    logger.debug(withName("subscribe"))
     init()
   }
 
@@ -62,6 +65,7 @@ trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
 
 object FunctionProcessor {
   def apply[I]() = new FunctionProcessor[I,I](x => x)
+  def apply[I](name:String) = new FunctionProcessor[I,I](x => x, Some(name))
   def apply[I,O](f:I => O) = new FunctionProcessor[I,O](f)
   def apply[I,O](f:I => O, name:String) = new FunctionProcessor[I,O](f, Some(name))
 }

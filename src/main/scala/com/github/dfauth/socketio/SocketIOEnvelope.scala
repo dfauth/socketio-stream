@@ -35,7 +35,7 @@ case object Disconnect extends MessageType(1)
 case object Event extends MessageType(2) {
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = {
     data.map { e => {
-      e.payload.map { f => EventCommand(ctx.token, Some(f)) } getOrElse { EventCommand(ctx.token) }
+      e.payload.map { f => EventCommand(ctx.token, e.namespace, Some(f)) } getOrElse { EventCommand(ctx.token, e.namespace) }
 
     } }.getOrElse { ErrorMessage(ctx.token, new RuntimeException("Oops"))}
   }
@@ -94,6 +94,8 @@ object SocketIOEnvelope extends LazyLogging {
   def connect() = {
     SocketIOEnvelope(Connect, None)
   }
+
+  def event(namespace:String, payload:String) = SocketIOEnvelope(Event, Some(SocketIOPacket(namespace, Some(payload))))
 }
 
 case class SocketIOEnvelope(messageType:MessageType, data:Option[SocketIOPacket] = None) extends Bytable {
@@ -106,7 +108,7 @@ case class SocketIOEnvelope(messageType:MessageType, data:Option[SocketIOPacket]
   }
   override def toString: String = {
     val payload:String = data.map(_.toString).getOrElse(new String)
-    payload.length.toString+":"+messageType.toString+payload.toString
+    messageType.toString+payload.toString
   }
 }
 

@@ -57,6 +57,16 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
     }
   }
 
+  def commandToEngineIoEnvelope:Command => EngineIOEnvelope = (c:Command) => c match {
+    case MessageCommand(id, namespace, payload) => EngineIOEnvelope(Msg, Some(SocketIOEnvelope.event(namespace, payload.toString)))
+  }
+
+  def engineIoEnvelopeToTextMessage:EngineIOEnvelope => TextMessage = (e:EngineIOEnvelope) => e match {
+    case x => TextMessage.Strict(e.toString)
+//    case EngineIOEnvelope(Pong, _) =>  TextMessage.Strict(e.toString)
+//    case EngineIOEnvelope(Msg, Some(SocketIOEnvelope(Event, Some(SocketIOPacket(namespace, Some(payload)))))) =>  TextMessage.Strict(e.toString)
+  }
+
   def messageToEngineIoEnvelopeProcessor():Processor[Message, EngineIOEnvelope] = TryFunctionProcessor[Message, EngineIOEnvelope](unwrap, "m2e")
 
   def messageToEngineIoEnvelopeSink(processor:Processor[Message, EngineIOEnvelope]):Sink[Message, NotUsed] = Sink.fromSubscriber(processor)
@@ -96,11 +106,10 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
               EngineIOTransport.valueOf(transport) match {
                 case Websocket => {
                   val id = userCtx.token
-//                  val sink:Future[Tuple2[Sink[Command, NotUsed], Source[Command, ActorRef[Command]]]] = askActor {
                   val fRef = askActor {
                     supervisor ? FetchSession(id)
                   }
-                  val fSrc:Future[Source[Command, ActorRef[Command]]] = fRef.map { reply => reply.src}
+                  val fSrc:Future[Source[Command, NotUsed]] = fRef.map { reply => reply.src}
                   val fSink:Future[Sink[Command, NotUsed]] = fRef.map {reply =>
                     ActorSink.actorRef[Command](reply.ref,
                       StreamComplete(id),
@@ -114,11 +123,10 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                     source2.to(Sink.futureSink[Command, NotUsed](fSink)).run()
 
                     val (source, graph1) = shortCircuit(source1, sink2)
-                    val (mergedSource, graph2) = MergingGraph[EngineIOEnvelope](source, Source.futureSource(fSrc).asInstanceOf[Source[EngineIOEnvelope, NotUsed]])
-                    val f = Flow.fromSinkAndSource(sink1, mergedSource.map(v => TextMessage.Strict(v.toString)))
+                    val (mergedSource, graph2) = MergingGraph[EngineIOEnvelope](source, Source.futureSource(fSrc).map(commandToEngineIoEnvelope).asInstanceOf[Source[EngineIOEnvelope, NotUsed]])
                     graph1.run()
                     graph2.run()
-                    f
+                    Flow.fromSinkAndSource(sink1, mergedSource.map(engineIoEnvelopeToTextMessage))
                   }
                 }
                 case activeTransport@Polling => {

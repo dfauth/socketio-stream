@@ -24,7 +24,7 @@ object MergingGraph {
 
   def apply[T](src:Source[T, NotUsed], src2:Source[T, NotUsed]) = {
 
-    val processor = FunctionProcessor[T]()
+    val processor = FunctionProcessor[T]("mergingGraph")
     val sink = Sink.fromSubscriber(processor)
     val internalSrc = Source.fromPublisher(processor)
 
