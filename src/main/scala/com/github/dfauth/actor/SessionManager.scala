@@ -7,9 +7,12 @@ import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{Behavior, PostStop, Signal}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{MergeHub, Sink, Source}
+import com.github.dfauth.socketio
 import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.socketio.{FunctionProcessor, UserContext}
 import com.github.dfauth.utils.StreamUtils._
+
+import scala.concurrent.duration._
 
 object SessionManager {
   def apply[U](userCtx:UserContext[U], namespaces: Iterable[String]): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx, namespaces))
@@ -35,8 +38,8 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], name
       }
       case EventCommand(id, namespace, payload) => {
         var i = new AtomicInteger()
-        Source.tick(ONE_SECOND, ONE_SECOND,() => i.incrementAndGet()).map{s => MessageCommand(id, namespace, s"""["event", ${s()}]""")}.runWith(streamSink)
-//        RandomSource(ONE_SECOND, () => Math.random()).map{s => MessageCommand(id, s)}.runWith(streamSink)
+        Source.tick(ONE_SECOND, ONE_SECOND,() => i.incrementAndGet()).map{s => MessageCommand(id, namespace, socketio.EventWrapper("left", s()))}.runWith(streamSink)
+        Source.tick(ONE_SECOND, 900 millis,() => ('A'.toInt + i.incrementAndGet()%26).toChar).map{s => MessageCommand(id, namespace, socketio.EventWrapper("right", s()))}.runWith(streamSink)
         Behaviors.same
       }
       case EndSession(id) => {

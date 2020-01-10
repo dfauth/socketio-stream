@@ -1,21 +1,46 @@
 <!doctype html>
 <html>
 <head>
-    <title>Socket.IO chat</title>
+    <title>Socket.IO</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font: 13px Helvetica, Arial; }
-        .form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
-        .form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
-        .form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
-        #messages { list-style-type: none; margin: 0; padding: 0; }
-        #messages li { padding: 5px 10px; }
-        #messages li:nth-child(odd) { background: #eee; }
-        #messages { margin-bottom: 40px }
-    </style>
+        html, body {
+          height: 100%;
+          overflow: hidden;
+          margin: 10;
+        }
+        #content {
+          height: 50%;
+        }
+        #left {
+          float: left;
+          height: 50%;
+          width: 50%;
+          background: #aaffaa;
+          overflow: auto;
+          box-sizing: border-box;
+          padding: 5em;
+        }
+        #right {
+          float: right;
+          height: 50%;
+          width: 50%;
+          background: #ffaaaa;
+          overflow: auto;
+          box-sizing: border-box;
+          padding: 5em;
+        }
+        #form {
+          float: center;
+          width: 100%;
+          padding: 5em;
+        }
+</style>
 </head>
 <body>
-<ul id="messages"></ul>
+<div id="content">
+    <div id="left">'left' stream</div>
+    <div id="right">'right' stream</div>
+</div>
 <form class="form" action="">
     <input id="m" autocomplete="off" /><button>Send</button>
 </form>
@@ -44,9 +69,11 @@
             $('#m').val('');
             return false;
         });
-        socket.on('event', function(msg) {
-            $('#messages').append($('<li>').text(msg));
-            window.scrollTo(0, document.body.scrollHeight);
+        socket.on('left', function(msg) {
+            $('#left').text(msg);
+        });
+        socket.on('right', function(msg) {
+            $('#right').text(msg);
         });
     });
 </script>
