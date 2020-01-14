@@ -69,12 +69,18 @@
             $('#m').val('');
             return false;
         });
-        socket.on('left', function(msg) {
+        socket.on('left', function(msg, callback) {
             $('#left').text(msg);
+            $('#left').click(function(ack) {
+                callback('{ackId: '+msg+'}')
+            })
         });
-        socket.on('right', function(msg) {
+        socket.on('right', function(msg, callback) {
             $('#right').text(msg);
         });
+        $('#right').click(function(msg) {
+            alert('clicked on '+msg.innerHTML)
+        })
     });
 </script>
 </body>

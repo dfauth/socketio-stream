@@ -38,8 +38,13 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], name
       }
       case EventCommand(id, namespace, payload) => {
         var i = new AtomicInteger()
-        Source.tick(ONE_SECOND, ONE_SECOND,() => i.incrementAndGet()).map{s => MessageCommand(id, namespace, socketio.EventWrapper("left", s()))}.runWith(streamSink)
+        var j = new AtomicInteger()
+        Source.tick(ONE_SECOND, ONE_SECOND,() => i.incrementAndGet()).map{s => MessageCommand(id, namespace, socketio.EventWrapper("left", s(), Some(j.incrementAndGet())))}.runWith(streamSink)
         Source.tick(ONE_SECOND, 900 millis,() => ('A'.toInt + i.incrementAndGet()%26).toChar).map{s => MessageCommand(id, namespace, socketio.EventWrapper("right", s()))}.runWith(streamSink)
+        Behaviors.same
+      }
+      case AckCommand(id, nsp, ackId, payload) => {
+        ctx.log.info(s"message with id ${ackId} in namespace ${nsp} acked")
         Behaviors.same
       }
       case EndSession(id) => {

@@ -58,7 +58,10 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
   }
 
   def commandToEngineIoEnvelope:Command => EngineIOEnvelope = (c:Command) => c match {
-    case MessageCommand(id, namespace, payload) => EngineIOEnvelope(Msg, Some(SocketIOEnvelope.event(namespace, payload.toString)))
+    case MessageCommand(id, namespace, payload) => payload match {
+      case EventWrapper(_, _, optAckId) => EngineIOEnvelope(Msg, Some(SocketIOEnvelope.event(namespace, payload.toString, optAckId)))
+      case _ => EngineIOEnvelope(Msg, Some(SocketIOEnvelope.event(namespace, payload.toString)))
+    }
   }
 
   def engineIoEnvelopeToTextMessage:EngineIOEnvelope => TextMessage = (e:EngineIOEnvelope) => e match {

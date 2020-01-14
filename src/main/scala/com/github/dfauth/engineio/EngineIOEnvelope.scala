@@ -191,8 +191,6 @@ case object Upgrade extends MessageType(5)
 case object Noop extends MessageType(6)
 case object Error extends MessageType(7)
 
-
-
 case class EngineIOEnvelope(messageType:MessageType, data:Option[Bytable] = None) extends ProtocolOps
 
 trait EngineIOPacket extends Bytable {

@@ -1,6 +1,6 @@
 package com.github.dfauth.socketio
 
-case class EventWrapper[T](name:String, payload:T) {
+case class EventWrapper[T](name:String, payload:T, ackId:Option[Int] = None) {
   override def toString: String = {
     val r = payload match {
       case c:Character => {

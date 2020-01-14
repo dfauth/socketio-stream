@@ -25,5 +25,6 @@ case class FetchSessionCommand(id:String, replyTo:ActorRef[FetchSessionReply]) e
 case class FetchSessionReply(id:String, namespaces:Iterable[String], ref:ActorRef[Command], src:Source[Command, NotUsed]) extends Command
 case class ErrorMessage(id:String, t:Throwable) extends Command
 case class EventCommand(id:String, namespace:String, payload:Option[String] = None) extends Command
+case class AckCommand(id:String, namespace:String, ackId:Int, payload:Option[String] = None) extends Command
 case class MessageCommand[T](id:String, namespace:String, payload:T) extends Command
 case class StreamComplete(id:String) extends Command
