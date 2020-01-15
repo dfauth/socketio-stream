@@ -1,5 +1,7 @@
 package com.github.dfauth.socketio
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.server.Directives.{getFromResource, getFromResourceDirectory, path, pathPrefix, _}
 import akka.http.scaladsl.server.Route
@@ -16,11 +18,15 @@ object Main extends App with LazyLogging {
   implicit val system: ActorSystem = ActorSystem("socketioService")
   implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  val sourceFactory: SourceFactory = new TestSourceFactory()
+  val i = new AtomicInteger()
+  val sourceFactories:Seq[SourceFactory] = Seq(
+    new TestSourceFactory("/rfq", () => new Blah(i.incrementAndGet())),
+    new TestSourceFactory("/orders", () => new BlahChar(('A'.toInt + i.incrementAndGet()%26).toChar, i.incrementAndGet()))
+  )
 
   new ServiceLifecycleImpl(system, materializer) {
 
-    override val route: Route = SocketIoStream(system, validator, sourceFactory).route ~ static
+    override val route: Route = SocketIoStream(system, validator, sourceFactories).route ~ static
   }.start()
 
   Await.result(system.whenTerminated, Duration.Inf)

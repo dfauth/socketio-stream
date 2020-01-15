@@ -6,10 +6,10 @@ import com.github.dfauth.socketio.SourceFactory
 import com.typesafe.scalalogging.LazyLogging
 
 object Supervisor {
-  def apply(sourceFactory: SourceFactory): Behavior[Command] = Behaviors.setup[Command](context => new Supervisor(context, sourceFactory))
+  def apply(sourceFactories:Seq[SourceFactory]): Behavior[Command] = Behaviors.setup[Command](context => new Supervisor(context, sourceFactories))
 }
 
-class Supervisor(ctx: ActorContext[Command], sourceFactory: SourceFactory) extends AbstractBehavior[Command](ctx) with LazyLogging {
+class Supervisor(ctx: ActorContext[Command], sourceFactories:Seq[SourceFactory]) extends AbstractBehavior[Command](ctx) with LazyLogging {
 
   var cache:Map[String, ActorRef[Command]] = Map.empty
 
@@ -22,7 +22,7 @@ class Supervisor(ctx: ActorContext[Command], sourceFactory: SourceFactory) exten
         cache.get(id).map { ref =>
           logger.info(s"existing session - ignoring")
         } getOrElse {
-          val ref = ctx.spawn[Command](SessionManager(userCtx, sourceFactory), id)
+          val ref = ctx.spawn[Command](SessionManager(userCtx, sourceFactories), id)
           cache = cache + (id -> ref)
           replyTo ! CreateSessionReply(id)
           ref

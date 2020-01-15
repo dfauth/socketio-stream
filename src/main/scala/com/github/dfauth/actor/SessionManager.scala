@@ -10,10 +10,10 @@ import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.socketio._
 
 object SessionManager {
-  def apply[U](userCtx:UserContext[U], sourceFactory: SourceFactory): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx, sourceFactory))
+  def apply[U](userCtx:UserContext[U], sourceFactories:Seq[SourceFactory]): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx, sourceFactories))
 }
 
-class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], sourceFactory:SourceFactory) extends AbstractBehavior[Command](ctx) {
+class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], sourceFactories:Seq[SourceFactory]) extends AbstractBehavior[Command](ctx) {
 
   implicit val mat = Materializer(ctx.system)
   ctx.log.info(s"session manager started with user ctx: ${userCtx}")
@@ -22,9 +22,9 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], sour
   val streamSink:Sink[Command, NotUsed] = MergeHub.source[Command](16).to(sink).run()
 
   def initializeSources() =
-    sourceFactory.namespaces.foreach { n =>
-      sourceFactory.create(n).map { (m:Ackable with Eventable) =>
-        MessageCommand(userCtx.token, n, socketio.EventWrapper(m.eventId, m, Some(m.ackId)))
+    sourceFactories.foreach { f =>
+      f.create.map { (m:Ackable with Eventable) =>
+        MessageCommand(userCtx.token, f.namespace, socketio.EventWrapper(m.eventId, m, Some(m.ackId)))
       }.runWith(streamSink)
     }
 
@@ -35,7 +35,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], sour
         Behaviors.unhandled // cannot support this in stateless polling model
       }
       case FetchSessionCommand(id, replyTo) => {
-        replyTo ! FetchSessionReply(id, sourceFactory.namespaces, ctx.self, source)
+        replyTo ! FetchSessionReply(id, sourceFactories.map {_.namespace}, ctx.self, source)
         Behaviors.same
       }
       case EventCommand(id, namespace, payload) => {
