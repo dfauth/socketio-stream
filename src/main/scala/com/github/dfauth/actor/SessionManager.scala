@@ -18,7 +18,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], sour
   implicit val mat = Materializer(ctx.system)
   ctx.log.info(s"session manager started with user ctx: ${userCtx}")
 
-  val (sink, source) = sinkAndSourceOf[Command,Command](FunctionProcessor[Command]())
+  val (sink, source) = sinkToSource[Command]
   val streamSink:Sink[Command, NotUsed] = MergeHub.source[Command](16).to(sink).run()
 
   def initializeSources() =
@@ -40,10 +40,6 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], sour
       }
       case EventCommand(id, namespace, payload) => {
         initializeSources()
-//        var i = new AtomicInteger()
-//        var j = new AtomicInteger()
-//        Source.tick(ONE_SECOND, ONE_SECOND,() => i.incrementAndGet()).map{s => MessageCommand(id, namespace, socketio.EventWrapper("left", s(), Some(j.incrementAndGet())))}.runWith(streamSink)
-//        Source.tick(ONE_SECOND, 900 millis,() => ('A'.toInt + i.incrementAndGet()%26).toChar).map{s => MessageCommand(id, namespace, socketio.EventWrapper("right", s()))}.runWith(streamSink)
         Behaviors.same
       }
       case AckCommand(id, nsp, ackId, payload) => {

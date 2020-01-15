@@ -3,18 +3,17 @@ package com.github.dfauth.socketio
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.NotUsed
-import akka.http.scaladsl.model.ws.Message
 import akka.stream.scaladsl.{Sink, Source}
-import com.github.dfauth.engineio.EngineIOEnvelope
 import com.github.dfauth.utils.TryCatchUtils._
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.{Processor, Subscriber, Subscription}
 
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 object Processors {
 
-  def sinkToSource[T]:(Sink[T, NotUsed], Source[T, NotUsed]) = sinkAndSourceOf(FunctionProcessor[T]())
+  def sinkToSource[T:ClassTag]:(Sink[T, NotUsed], Source[T, NotUsed]) = sinkAndSourceOf(FunctionProcessor[T]())
 
   def sinkAndSourceOf[I,O](processor:Processor[I,O]) = {
     val sink:Sink[I, NotUsed] = Sink.fromSubscriber(processor)
