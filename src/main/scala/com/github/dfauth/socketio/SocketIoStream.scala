@@ -8,7 +8,6 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives.{entity, path, _}
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.util.Tuple
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.typed.scaladsl.ActorSink
@@ -29,11 +28,11 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) extends LazyLogging {
+class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], sourceFactory:SourceFactory) extends LazyLogging {
   implicit val materializer = Materializer.apply(system)
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe
-  val typedSystem = TypedActorSystem[Command](Supervisor(), "socket_io")
+  val typedSystem = TypedActorSystem[Command](Supervisor(sourceFactory), "socket_io")
   val supervisor:ActorRef[Command] = typedSystem
   def octetStream(source: Source[ByteString, NotUsed]): ToResponseMarshallable = HttpResponse(entity = HttpEntity.Chunked.fromData(ContentTypes.`application/octet-stream`, source))
   def tokenAuth(r:UserContext[U] => Route):Route = optionalHeaderValueByName("x-auth") { token =>
@@ -136,7 +135,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U]) 
                   val f:Future[EngineIOPackets] = sid match {
                     case None => {
                       askActor {
-                        supervisor ? CreateSession(userCtx, config.namespaces)
+                        supervisor ? CreateSession(userCtx)
                       }.map {r => EngineIOPackets(EngineIOEnvelope.open(userCtx.token, config, activeTransport)) }
                     }
                     case Some(v) => {
@@ -175,5 +174,5 @@ trait UserContext[U] {
 }
 object SocketIoStream {
   type TokenValidator[U] = String => Try[UserContext[U]]
-  def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U]): SocketIoStream[U] = new SocketIoStream(system, tokenValidator)
+  def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U], sourceFactory: SourceFactory): SocketIoStream[U] = new SocketIoStream(system, tokenValidator, sourceFactory)
 }

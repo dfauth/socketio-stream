@@ -75,12 +75,12 @@
                 callback('{ackId: '+msg+'}')
             })
         });
-        socket.on('right', function(msg, callback) {
+        socket2.on('right', function(msg, callback) {
             $('#right').text(msg);
+            $('#right').click(function(ack) {
+                callback('{ackId: '+msg+'}')
+            })
         });
-        $('#right').click(function(msg) {
-            alert('clicked on '+msg.innerHTML)
-        })
     });
 </script>
 </body>

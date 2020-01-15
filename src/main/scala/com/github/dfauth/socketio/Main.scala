@@ -16,8 +16,11 @@ object Main extends App with LazyLogging {
   implicit val system: ActorSystem = ActorSystem("socketioService")
   implicit val materializer: ActorMaterializer = ActorMaterializer()
 
+  val sourceFactory: SourceFactory = new TestSourceFactory()
+
   new ServiceLifecycleImpl(system, materializer) {
-    override val route: Route = SocketIoStream(system, validator).route ~ static
+
+    override val route: Route = SocketIoStream(system, validator, sourceFactory).route ~ static
   }.start()
 
   Await.result(system.whenTerminated, Duration.Inf)

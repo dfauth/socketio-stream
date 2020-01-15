@@ -2,13 +2,14 @@ package com.github.dfauth.actor
 
 import akka.actor.typed.{ActorRef, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
+import com.github.dfauth.socketio.SourceFactory
 import com.typesafe.scalalogging.LazyLogging
 
 object Supervisor {
-  def apply(): Behavior[Command] = Behaviors.setup[Command](context => new Supervisor(context))
+  def apply(sourceFactory: SourceFactory): Behavior[Command] = Behaviors.setup[Command](context => new Supervisor(context, sourceFactory))
 }
 
-class Supervisor(ctx: ActorContext[Command]) extends AbstractBehavior[Command](ctx) with LazyLogging {
+class Supervisor(ctx: ActorContext[Command], sourceFactory: SourceFactory) extends AbstractBehavior[Command](ctx) with LazyLogging {
 
   var cache:Map[String, ActorRef[Command]] = Map.empty
 
@@ -17,11 +18,11 @@ class Supervisor(ctx: ActorContext[Command]) extends AbstractBehavior[Command](c
   override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"supervisor received message ${msg}")
     msg match {
-      case CreateSessionCommand(id, userCtx, namespaces, replyTo) => {
+      case CreateSessionCommand(id, userCtx, replyTo) => {
         cache.get(id).map { ref =>
           logger.info(s"existing session - ignoring")
         } getOrElse {
-          val ref = ctx.spawn[Command](SessionManager(userCtx, namespaces), id)
+          val ref = ctx.spawn[Command](SessionManager(userCtx, sourceFactory), id)
           cache = cache + (id -> ref)
           replyTo ! CreateSessionReply(id)
           ref
