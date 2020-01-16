@@ -28,11 +28,11 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], sourceFactories:Seq[SourceFactory]) extends LazyLogging {
+class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], flowFactories:Seq[FlowFactory]) extends LazyLogging {
   implicit val materializer = Materializer.apply(system)
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe
-  val typedSystem = TypedActorSystem[Command](Supervisor(sourceFactories), "socket_io")
+  val typedSystem = TypedActorSystem[Command](Supervisor(flowFactories), "socket_io")
   val supervisor:ActorRef[Command] = typedSystem
   def octetStream(source: Source[ByteString, NotUsed]): ToResponseMarshallable = HttpResponse(entity = HttpEntity.Chunked.fromData(ContentTypes.`application/octet-stream`, source))
   def tokenAuth(r:UserContext[U] => Route):Route = optionalHeaderValueByName("x-auth") { token =>
@@ -112,12 +112,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], 
                     supervisor ? FetchSession(id)
                   }
                   val fSrc:Future[Source[Command, NotUsed]] = fRef.map { reply => reply.src}
-                  val fSink:Future[Sink[Command, NotUsed]] = fRef.map {reply =>
-                    ActorSink.actorRef[Command](reply.ref,
-                      StreamComplete(id),
-                      t => ErrorMessage(id, t)
-                    )
-                  }
+                  val fSink:Future[Sink[Command, NotUsed]] = fRef.map {reply => reply.sink }
                   handleWebSocketMessages {
                     val(sink1, source1) = sinkAndSourceOf(messageToEngineIoEnvelopeProcessor())
                     val(sink2, source2) = sinkAndSourceOf(engineIoEnvelopeToCommandProcessor(userCtx))
@@ -174,5 +169,5 @@ trait UserContext[U] {
 }
 object SocketIoStream {
   type TokenValidator[U] = String => Try[UserContext[U]]
-  def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U], sourceFactories:Seq[SourceFactory]): SocketIoStream[U] = new SocketIoStream(system, tokenValidator, sourceFactories)
+  def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U], flowFactories:Seq[FlowFactory]): SocketIoStream[U] = new SocketIoStream(system, tokenValidator, flowFactories)
 }
