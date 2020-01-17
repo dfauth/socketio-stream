@@ -29,7 +29,12 @@
           box-sizing: border-box;
           padding: 5em;
         }
-        #form {
+        #form1 {
+          float: center;
+          width: 100%;
+          padding: 5em;
+        }
+        #lower {
           float: center;
           width: 100%;
           padding: 5em;
@@ -40,9 +45,12 @@
 <div id="content">
     <div id="left">left</div>
     <div id="right">right</div>
-    <form class="form" action="">
-        <input id="m" autocomplete="off" /><button>Send</button><button id="reset">Reset</button>
-    </form>
+    <div id="form1">
+        <form class="form" action="">
+            <input id="m" autocomplete="off" /><button>Send</button>
+        </form>
+        <button id="reset">Reset</button>
+    </div>
     <div id="lower"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
@@ -73,6 +81,7 @@
         $('#reset').click(function(){
             $('#left').text("left");
             $('#right').text("right");
+            $('#lower').text("");
         });
         socket.on('left', function(msg, callback) {
             $('#left').text(msg);
