@@ -7,6 +7,7 @@ import akka.http.scaladsl.server.Directives.{getFromResource, getFromResourceDir
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
+import com.github.dfauth.socketio.utils.StreamUtils._
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.Await
@@ -20,8 +21,8 @@ object Main extends App with LazyLogging {
 
   val i = new AtomicInteger()
   val flowFactories:Seq[FlowFactory] = Seq(
-    new TestFlowFactory("/rfq", () => new Blah(i.incrementAndGet())),
-    new TestFlowFactory("/orders", () => new BlahChar(('A'.toInt + i.incrementAndGet()%26).toChar, i.incrementAndGet()))
+    new TestFlowFactory("/rfq", () => new Blah(i.incrementAndGet()), secondsOf(3)),
+    new TestFlowFactory("/orders", () => new BlahChar(('A'.toInt + i.incrementAndGet()%26).toChar, i.incrementAndGet()), secondsOf(2.7))
   )
 
   new ServiceLifecycleImpl(system, materializer) {

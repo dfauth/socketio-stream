@@ -19,6 +19,11 @@ case class BlahChar(c:Char, ackId:Int) extends Ackable with Eventable {
   override def toString: String = s""""${c.toString}""""
 }
 
+case class BlahString(msg:String, ackId:Int) extends Ackable with Eventable {
+  val eventId:String = "ack"
+  override def toString: String = s""""${msg} ack id: ${ackId}""""
+}
+
 case class TestSourceFactory(namespace:String, f:()=>Ackable with Eventable) extends SourceFactory {
 
   override def create[T >: Ackable with Eventable]: Source[T, Cancellable] = {
@@ -27,11 +32,11 @@ case class TestSourceFactory(namespace:String, f:()=>Ackable with Eventable) ext
   }
 }
 
-case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable) extends FlowFactory {
+case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay:FiniteDuration) extends FlowFactory {
 
   override def create[T >: Ackable with Eventable] = {
-    val a = StreamUtils.loggingSink[T]("TestFlowFactory received: ")
-    val b = Source.tick(ONE_SECOND, ONE_SECOND, f).map {g => g() }
+    val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
+    val b = Source.tick(delay, delay, f).map {g => g() }
     (a,b)
   }
 }

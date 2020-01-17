@@ -33,10 +33,12 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
   ))
 
   def outbound(namespace:String):Ackable with Eventable => Command = (m:Ackable with Eventable) => MessageCommand(userCtx.token, namespace, socketio.EventWrapper(m.eventId, m, Some(m.ackId)))
-  def inbound:Command => Ackable with Eventable = (c:Command) => {
-    new Ackable with Eventable {
-      override val ackId: Int = 0
-      override val eventId:String = "event"
+  def inbound:Command => Ackable with Eventable = (c:Command) => c match {
+    case e:AckCommand => e.payload.map { new BlahString(_, e.ackId)}.getOrElse(new BlahString("missing ack message", e.ackId))
+    case x => {
+      val e = new IllegalArgumentException(s"Unexpected message type: ${x}")
+      logger.error(e.getMessage, e)
+      BlahString(e.getMessage, 0)
     }
   }
 

@@ -25,6 +25,8 @@ object StreamUtils extends LazyLogging {
   }
 
   val ONE_SECOND = FiniteDuration(1, TimeUnit.SECONDS)
+
+  def secondsOf(d:Double) = FiniteDuration((d*1000).toLong, TimeUnit.MILLISECONDS)
 }
 
 case class DelayedClosePublisher[T](payload: Future[T], delay:TemporalAmount = Duration.ofSeconds(2))(implicit ec:ExecutionContext) extends Publisher[T] {
