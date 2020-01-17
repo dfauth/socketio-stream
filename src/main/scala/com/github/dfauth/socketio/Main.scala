@@ -21,8 +21,8 @@ object Main extends App with LazyLogging {
 
   val i = new AtomicInteger()
   val flowFactories:Seq[FlowFactory] = Seq(
-    new TestFlowFactory("/rfq", () => new Blah(i.incrementAndGet()), secondsOf(3)),
-    new TestFlowFactory("/orders", () => new BlahChar(('A'.toInt + i.incrementAndGet()%26).toChar, i.incrementAndGet()), secondsOf(2.7))
+    new TestFlowFactory("/left", () => new Blah(i.incrementAndGet()), secondsOf(3)),
+    new TestFlowFactory("/right", () => new BlahChar(('A'.toInt + i.incrementAndGet()%26).toChar, i.incrementAndGet()), secondsOf(2.7))
   )
 
   new ServiceLifecycleImpl(system, materializer) {

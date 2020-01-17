@@ -38,12 +38,13 @@
 </head>
 <body>
 <div id="content">
-    <div id="left">'left' stream</div>
-    <div id="right">'right' stream</div>
+    <div id="left">left</div>
+    <div id="right">right</div>
+    <form class="form" action="">
+        <input id="m" autocomplete="off" /><button>Send</button><button id="reset">Reset</button>
+    </form>
+    <div id="lower"></div>
 </div>
-<form class="form" action="">
-    <input id="m" autocomplete="off" /><button>Send</button>
-</form>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
 <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
 <script>
@@ -56,11 +57,11 @@
             }
           }
 
-        const socket = io("/rfq", {
+        const socket = io("/left", {
           transportOptions: tOpts
         });
 
-        const socket2 = io("/orders", {
+        const socket2 = io("/right", {
           transportOptions: tOpts
         });
 
@@ -69,16 +70,22 @@
             $('#m').val('');
             return false;
         });
+        $('#reset').click(function(){
+            $('#left').text("left");
+            $('#right').text("right");
+        });
         socket.on('left', function(msg, callback) {
             $('#left').text(msg);
             $('#left').click(function(ack) {
-                callback('{ackId: '+msg+'}')
+                callback({ ackId: msg })
+                $('#lower').text('acked '+msg)
             })
         });
         socket2.on('right', function(msg, callback) {
             $('#right').text(msg);
             $('#right').click(function(ack) {
-                callback('{ackId: '+msg+'}')
+                callback({ ackId: msg })
+                $('#lower').text('acked '+msg)
             })
         });
     });
