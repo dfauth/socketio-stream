@@ -1,6 +1,4 @@
-package com.github.dfauth.protocol
-
-import com.github.dfauth.engineio.EngineIOPacket
+package com.github.dfauth.socketio.protocol
 
 import scala.collection.mutable.ArrayBuffer
 

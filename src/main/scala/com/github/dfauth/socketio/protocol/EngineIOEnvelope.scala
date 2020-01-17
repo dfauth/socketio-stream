@@ -1,4 +1,4 @@
-package com.github.dfauth.engineio
+package com.github.dfauth.socketio.protocol
 
 import java.nio.charset.Charset
 import java.time.temporal.ChronoUnit
@@ -7,9 +7,8 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
-import com.github.dfauth.actor.{Command, EndSession, ErrorMessage}
-import com.github.dfauth.protocol.{Bytable, ProtocolMessageType, ProtocolOps}
-import com.github.dfauth.socketio.{SocketIOConfig, SocketIOEnvelope, UserContext}
+import com.github.dfauth.socketio.actor.{Command, EndSession, ErrorMessage}
+import com.github.dfauth.socketio.{SocketIOConfig, UserContext}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
@@ -27,11 +26,11 @@ object EngineIOEnvelope extends LazyLogging {
         Failure(e)
       }
       case Array(x) => {
-        val msgType = MessageType.fromByte(x)
+        val msgType = EngineIOMessageType.fromByte(x)
         Success(EngineIOEnvelope(msgType))
       }
       case Array(x, _*) => {
-        val msgType = MessageType.fromByte(x)
+        val msgType = EngineIOMessageType.fromByte(x)
         val payload = msgType.payload(b.slice(1, b.length))
         Success(EngineIOEnvelope(msgType, payload))
       }
@@ -53,7 +52,7 @@ object EngineIOEnvelope extends LazyLogging {
       case Array(lenString, payload) => {
         val len = lenString.toString.toInt
         payload.toCharArray match {
-          case Array(msgType, _*) => Success(EngineIOEnvelope(MessageType.fromChar(msgType),
+          case Array(msgType, _*) => Success(EngineIOEnvelope(EngineIOMessageType.fromChar(msgType),
             SocketIOEnvelope.fromString(str.substring(str.length-len.toString.toInt+1, str.length)).toOption
           ))
 
@@ -73,7 +72,7 @@ object EngineIOEnvelope extends LazyLogging {
   def connect(message:String):EngineIOEnvelope = EngineIOEnvelope(Msg, Some(SocketIOEnvelope.connect(message)))
   def connect():EngineIOEnvelope = EngineIOEnvelope(Msg, Some(SocketIOEnvelope.connect()))
   def heartbeat(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Pong, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Pong))
-  def error(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(Error, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(Error))
+  def error(optMessage:Option[String] = None):EngineIOEnvelope = optMessage.map(m => EngineIOEnvelope(EngineIOError, Some(EngineIOStringPacket(m)))).getOrElse(EngineIOEnvelope(EngineIOError))
 
   implicit val decoder:FromRequestUnmarshaller[EngineIOEnvelope] = new Unmarshaller[HttpRequest, EngineIOEnvelope](){
     override def apply(req: HttpRequest)(implicit ec: ExecutionContext, materializer: Materializer): Future[EngineIOEnvelope] = {
@@ -125,11 +124,11 @@ object EngineIOEnvelope extends LazyLogging {
 
 }
 
-object MessageType {
+object EngineIOMessageType {
 
   def fromChar(c:Char) = fromByte(c.toByte)
 
-  def fromByte(b: Byte) = (b.toInt - 48 )  match {
+  def fromByte(b: Byte):EngineIOMessageType = (b.toInt - 48 )  match {
     case 0 => Open
     case 1 => Close
     case 2 => Ping
@@ -137,29 +136,29 @@ object MessageType {
     case 4 => Msg
     case 5 => Upgrade
     case 6 => Noop
-    case 7 => Error
+    case 7 => EngineIOError
   }
 
 }
 
-sealed class MessageType(override val value:Int) extends ProtocolMessageType with LazyLogging {
+sealed class EngineIOMessageType(override val value:Int) extends ProtocolMessageType with LazyLogging {
   def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = ???
 }
 
-case object Open extends MessageType(0)
-case object Close extends MessageType(1) {
+case object Open extends EngineIOMessageType(0)
+case object Close extends EngineIOMessageType(1) {
   override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = {
     e.data match {
       case None => EndSession(ctx.token)
     }
   }
 }
-case object Ping extends MessageType(2) {
+case object Ping extends EngineIOMessageType(2) {
   override def payload(b:Array[Byte]):Option[EngineIOPacket] = Some(EngineIOStringPacket((b.map(_.toChar)).mkString))
 }
-case object Pong extends MessageType(3) {
+case object Pong extends EngineIOMessageType(3) {
 }
-case object Msg extends MessageType(4) {
+case object Msg extends EngineIOMessageType(4) {
   override def payload(b:Array[Byte]):Option[EngineIOPacket] = {
     SocketIOEnvelope.fromBytes(b) match {
       case Success(s) => Some(EngineIOSocketIOPacket(s))
@@ -187,11 +186,11 @@ case object Msg extends MessageType(4) {
     }
   }
 }
-case object Upgrade extends MessageType(5)
-case object Noop extends MessageType(6)
-case object Error extends MessageType(7)
+case object Upgrade extends EngineIOMessageType(5)
+case object Noop extends EngineIOMessageType(6)
+case object EngineIOError extends EngineIOMessageType(7)
 
-case class EngineIOEnvelope(messageType:MessageType, data:Option[Bytable] = None) extends ProtocolOps
+case class EngineIOEnvelope(messageType:EngineIOMessageType, data:Option[Bytable] = None) extends ProtocolOps
 
 trait EngineIOPacket extends Bytable {
   def toBytes():Array[Byte]

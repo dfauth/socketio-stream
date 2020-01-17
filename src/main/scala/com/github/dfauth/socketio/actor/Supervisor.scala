@@ -1,4 +1,4 @@
-package com.github.dfauth.actor
+package com.github.dfauth.socketio.actor
 
 import akka.actor.typed.{ActorRef, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}

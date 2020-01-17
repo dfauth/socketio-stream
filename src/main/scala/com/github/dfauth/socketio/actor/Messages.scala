@@ -1,9 +1,9 @@
-package com.github.dfauth.actor
+package com.github.dfauth.socketio.actor
 
 import akka.NotUsed
 import akka.actor.typed.ActorRef
 import akka.stream.scaladsl.{Sink, Source}
-import com.github.dfauth.actor.ActorUtils.AskSupport
+import com.github.dfauth.socketio.actor.ActorUtils.AskSupport
 import com.github.dfauth.socketio.UserContext
 
 trait Command {

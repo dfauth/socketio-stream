@@ -4,9 +4,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.github.dfauth.utils.StreamUtils
+import com.github.dfauth.socketio.utils.StreamUtils
 import com.typesafe.config.ConfigFactory
-import com.github.dfauth.utils.StreamUtils._
+import com.github.dfauth.socketio.utils.StreamUtils._
 
 import scala.concurrent.duration._
 

@@ -1,4 +1,4 @@
-package com.github.dfauth.engineio
+package com.github.dfauth.socketio.protocol
 
 object EngineIOTransport {
   def valueOf(name:String):EngineIOTransport = name match {

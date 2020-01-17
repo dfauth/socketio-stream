@@ -1,38 +1,37 @@
-package com.github.dfauth.socketio
+package com.github.dfauth.socketio.protocol
 
-import com.github.dfauth.actor._
-import com.github.dfauth.engineio._
-import com.github.dfauth.protocol.{Bytable, ProtocolMessageType}
+import com.github.dfauth.socketio._
+import com.github.dfauth.socketio.actor._
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
 
-object MessageType {
+object SocketIOMessageType {
   def fromChar(c:Char) = fromByte(c.toByte)
 
-  def fromByte(b: Byte) = (b.toInt - 48 )  match {
+  def fromByte(b: Byte):SocketIOMessageType = (b.toInt - 48 )  match {
     case 0 => Connect
     case 1 => Disconnect
     case 2 => Event
     case 3 => Ack
-    case 4 => Error
+    case 4 => SocketIOError
     case 5 => BinaryEvent
     case 6 => BinaryAck
   }
 }
 
-sealed class MessageType(override val value:Int) extends ProtocolMessageType {
+sealed class SocketIOMessageType(override val value:Int) extends ProtocolMessageType {
   def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = ???
 }
 
-case object Connect extends MessageType(0) {
+case object Connect extends SocketIOMessageType(0) {
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
     case Some(SocketIOPacket(namespace, _, _)) => AddNamespace(ctx.token, namespace)
   }
 }
-case object Disconnect extends MessageType(1)
-case object Event extends MessageType(2) {
+case object Disconnect extends SocketIOMessageType(1)
+case object Event extends SocketIOMessageType(2) {
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = {
     data.map { e => {
       e.payload.map { f => EventCommand(ctx.token, e.namespace, Some(f)) } getOrElse { EventCommand(ctx.token, e.namespace) }
@@ -40,7 +39,7 @@ case object Event extends MessageType(2) {
     } }.getOrElse { ErrorMessage(ctx.token, new RuntimeException("Oops"))}
   }
 }
-case object Ack extends MessageType(3) {
+case object Ack extends SocketIOMessageType(3) {
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = {
     data.map {
       e => e.ackId.map ( y => AckCommand(ctx.token, e.namespace, y)).getOrElse{
@@ -49,16 +48,11 @@ case object Ack extends MessageType(3) {
     }.getOrElse{
       ErrorMessage(ctx.token, new RuntimeException("Oops no SocketIOPacket found"))
     }
-
-//    data.map { e => {
-//      e.payload.map { f => AckCommand(ctx.token, e.namespace, Some(f)) } getOrElse { AckCommand(ctx.token, e.namespace) }
-//
-//    } }.getOrElse { ErrorMessage(ctx.token, new RuntimeException("Oops"))}
   }
 }
-case object Error extends MessageType(4)
-case object BinaryEvent extends MessageType(5)
-case object BinaryAck extends MessageType(6)
+case object SocketIOError extends SocketIOMessageType(4)
+case object BinaryEvent extends SocketIOMessageType(5)
+case object BinaryAck extends SocketIOMessageType(6)
 
 object SocketIOEnvelope extends LazyLogging {
   def fromBytes(b:Array[Byte]): Try[SocketIOEnvelope] = {
@@ -68,11 +62,11 @@ object SocketIOEnvelope extends LazyLogging {
         logger.error(t.getMessage, t)
         Failure(t)
       }
-      case Array(msgType) => Success(SocketIOEnvelope(MessageType.fromByte(msgType)))
+      case Array(msgType) => Success(SocketIOEnvelope(SocketIOMessageType.fromByte(msgType)))
       case Array(msgType, _*) => {
         SocketIOPacket.fromBytes(b.takeRight(b.length-1)) match {
           case Success(s) => {
-            Success(SocketIOEnvelope(MessageType.fromByte(msgType), s))
+            Success(SocketIOEnvelope(SocketIOMessageType.fromByte(msgType), s))
           }
           case Failure(t) => Failure(t)
         }
@@ -92,8 +86,8 @@ object SocketIOEnvelope extends LazyLogging {
         logger.error(t.getMessage, t)
         Failure(t)
       }
-      case Array(msgType) => Success(SocketIOEnvelope(MessageType.fromChar(msgType)))
-      case Array(msgType, _*) => Success(SocketIOEnvelope(MessageType.fromChar(msgType), SocketIOPacket(str.substring(1))))
+      case Array(msgType) => Success(SocketIOEnvelope(SocketIOMessageType.fromChar(msgType)))
+      case Array(msgType, _*) => Success(SocketIOEnvelope(SocketIOMessageType.fromChar(msgType), SocketIOPacket(str.substring(1))))
       case x => {
         val t = new IllegalArgumentException(s"Oops unknown argument ${x}")
         logger.error(t.getMessage, t)
@@ -102,8 +96,8 @@ object SocketIOEnvelope extends LazyLogging {
     }
   }
 
-  def apply(messageType:MessageType, data:SocketIOPacket) = new SocketIOEnvelope(messageType, Some(data))
-  def apply(messageType:MessageType) = new SocketIOEnvelope(messageType)
+  def apply(messageType:SocketIOMessageType, data:SocketIOPacket) = new SocketIOEnvelope(messageType, Some(data))
+  def apply(messageType:SocketIOMessageType) = new SocketIOEnvelope(messageType)
 
   def connect(namespace:String) = {
     SocketIOEnvelope(Connect, SocketIOPacket(namespace))
@@ -122,7 +116,7 @@ object SocketIOEnvelope extends LazyLogging {
   }
 }
 
-case class SocketIOEnvelope(messageType:MessageType, data:Option[SocketIOPacket] = None) extends Bytable {
+case class SocketIOEnvelope(messageType:SocketIOMessageType, data:Option[SocketIOPacket] = None) extends Bytable {
   override def toBytes: Array[Byte] = {
     val payload:Array[Byte] = data.map(_.toBytes).getOrElse(Array.emptyByteArray)
     val bytes = ArrayBuffer[Byte]()

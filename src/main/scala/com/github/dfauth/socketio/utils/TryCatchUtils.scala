@@ -1,4 +1,4 @@
-package com.github.dfauth.utils
+package com.github.dfauth.socketio.utils
 
 import com.typesafe.scalalogging.LazyLogging
 

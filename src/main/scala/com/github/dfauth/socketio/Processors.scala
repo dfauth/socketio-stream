@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.github.dfauth.utils.TryCatchUtils._
+import com.github.dfauth.socketio.utils.TryCatchUtils._
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.{Processor, Subscriber, Subscription}
 

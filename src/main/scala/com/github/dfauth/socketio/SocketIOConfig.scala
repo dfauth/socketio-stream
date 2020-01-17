@@ -1,7 +1,8 @@
 package com.github.dfauth.socketio
 
-import com.github.dfauth.engineio.EngineIOTransport
+import com.github.dfauth.socketio.protocol.EngineIOTransport
 import com.typesafe.config.Config
+
 import scala.collection.JavaConverters._
 
 case class SocketIOConfig(config: Config) {

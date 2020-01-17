@@ -1,4 +1,4 @@
-package com.github.dfauth.actor
+package com.github.dfauth.socketio.actor
 
 import akka.NotUsed
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
@@ -9,7 +9,7 @@ import akka.stream.typed.scaladsl.ActorSink
 import com.github.dfauth.socketio
 import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.socketio._
-import com.github.dfauth.utils.StreamUtils
+import com.github.dfauth.socketio.utils.StreamUtils
 
 object SessionManager {
   def apply[U](userCtx:UserContext[U], flowFactories:Seq[FlowFactory]): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx, flowFactories))

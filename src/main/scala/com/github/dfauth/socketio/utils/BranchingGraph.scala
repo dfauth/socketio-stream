@@ -1,4 +1,4 @@
-package com.github.dfauth.utils
+package com.github.dfauth.socketio.utils
 
 import akka.NotUsed
 import akka.stream.ClosedShape

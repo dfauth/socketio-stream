@@ -1,4 +1,4 @@
-package com.github.dfauth.actor
+package com.github.dfauth.socketio.actor
 
 import akka.actor.typed.receptionist.Receptionist.Register
 import akka.actor.typed.receptionist.ServiceKey
