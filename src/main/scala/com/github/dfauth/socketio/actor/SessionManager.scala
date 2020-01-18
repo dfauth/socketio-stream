@@ -9,7 +9,6 @@ import akka.stream.typed.scaladsl.ActorSink
 import com.github.dfauth.socketio
 import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.socketio._
-import com.github.dfauth.socketio.utils.StreamUtils
 
 object SessionManager {
   def apply[U](userCtx:UserContext[U], flowFactories:Seq[FlowFactory]): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx, flowFactories))
@@ -49,7 +48,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
 
   def initializeSources() = {
     flowFactories.foreach { f =>
-      val (sink, source) = f.create
+      val (sink, source) = f.create(userCtx)
       source.map(outbound(f.namespace)).runWith(streamSink)
       streamSource.filter(_.namespace == f.namespace).map(inbound).runWith(sink)
     }

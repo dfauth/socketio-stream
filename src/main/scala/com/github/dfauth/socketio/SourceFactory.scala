@@ -11,7 +11,7 @@ trait SourceFactory {
 
 trait FlowFactory {
   val namespace:String
-  def create[T >: Ackable with Eventable]:Tuple2[Sink[T, Any], Source[T, Any]]
+  def create[T >: Ackable with Eventable, U](ctx: UserContext[U]):Tuple2[Sink[T, Any], Source[T, Any]]
 }
 
 trait Ackable {

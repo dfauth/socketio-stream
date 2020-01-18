@@ -32,7 +32,7 @@ object Main extends App with LazyLogging {
 
   Await.result(system.whenTerminated, Duration.Inf)
 
-  def validator:TokenValidator[User] = t => Success(new UserContextImpl(t, User("fred")))
+  def validator:TokenValidator[User] = t => Success(new UserContextImpl(t, User("fred", Seq("user"))))
 
   def static =
     path("") {
@@ -43,7 +43,7 @@ object Main extends App with LazyLogging {
 
 }
 
-case class User(name:String)
+case class User(name:String, roles:Seq[String] = Seq.empty)
 case class UserContextImpl(token:String, payload:User) extends UserContext[User]
 
 

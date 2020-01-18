@@ -39,7 +39,7 @@ case class TestSourceFactory(namespace:String, f:()=>Ackable with Eventable) ext
 
 case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay:FiniteDuration) extends FlowFactory {
 
-  override def create[T >: Ackable with Eventable] = {
+  override def create[T >: Ackable with Eventable, U](ctx: UserContext[U]) = {
     val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
     val b = Source.tick(delay, delay, f).map {g => g() }
     (a,b)
@@ -48,7 +48,7 @@ case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay
 
 case class KafkaFlowFactory(namespace:String, eventId:String)(implicit system:ActorSystem) extends FlowFactory {
 
-  override def create[T >: Ackable with Eventable] = {
+  override def create[T >: Ackable with Eventable,U](ctx: UserContext[U]) = {
     val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
 
     val brokerList = system.settings.config.getString("bootstrap.servers")
