@@ -15,7 +15,7 @@ trait FlowFactory {
 }
 
 trait Ackable {
-  val ackId:Int
+  val ackId:Long
 }
 trait Eventable {
   val eventId:String

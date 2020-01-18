@@ -34,7 +34,10 @@ val guice = "com.google.inject" % "guice" % "4.2.2"
 val socketioClient = "io.socket" % "socket.io-client" % "1.0.0" % Test
 val akkaTyped = "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion
 val akkaStreamTyped = "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion
-
+val avro = "org.apache.avro" % "avro" % "1.8.2"
+val kafkaReg = "io.confluent" % "kafka-schema-registry-client" % "4.1.1"
+val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "4.1.1"
+val jodaTime = "joda-time" % "joda-time" % "2.10.1"
 
 val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging, logback)
 
@@ -46,10 +49,12 @@ lazy val root = (project in file("."))
       akkaStreamTyped,
       akkaTyped,
       guice,
-//      kafkaCore,
-//      akkaStreamsKafka,
+      kafkaCore,
+      kafkaReg,
+      akkaStreamsKafka,
+      kafkaAvroSerializer,
 //      kafkaStreams,
-//      kafkaClient,
+      kafkaClient,
 //      embeddedKafka,
 //      play,
 //      springMessaging,
@@ -58,6 +63,8 @@ lazy val root = (project in file("."))
 //      testNG,
 //      tyrus,
 //      akkaHttpTestKit,
+      jodaTime,
+      avro,
       socketioClient
       )
   )

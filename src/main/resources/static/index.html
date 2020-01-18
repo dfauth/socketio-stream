@@ -91,7 +91,7 @@
             })
         });
         socket2.on('right', function(msg, callback) {
-            $('#right').text(msg);
+            $('#right').text(JSON.stringify(msg))
             $('#right').click(function(ack) {
                 callback({ ackId: msg })
                 $('#lower').text('acked '+msg)

@@ -107,7 +107,7 @@ object SocketIOEnvelope extends LazyLogging {
     SocketIOEnvelope(Connect, None)
   }
 
-  def event(namespace:String, payload:String, optAckId:Option[Int] = None) = {
+  def event(namespace:String, payload:String, optAckId:Option[Long] = None) = {
     optAckId.map { ackId =>
       SocketIOEnvelope(Event, SocketIOPacket(namespace, ackId, Some(payload)))
     }.getOrElse {
@@ -130,7 +130,7 @@ case class SocketIOEnvelope(messageType:SocketIOMessageType, data:Option[SocketI
   }
 }
 
-case class SocketIOPacket(namespace:String, ackId:Option[Int] = None, payload:Option[String] = None) extends Bytable {
+case class SocketIOPacket(namespace:String, ackId:Option[Long] = None, payload:Option[String] = None) extends Bytable {
   def toBytes: Array[Byte] = namespace.getBytes(EngineIOEnvelope.UTF8)
   override def toString:String = payload.map(p =>
     namespace+","+ackId.map(_.toString).getOrElse(new String)+p
@@ -140,9 +140,9 @@ case class SocketIOPacket(namespace:String, ackId:Option[Int] = None, payload:Op
 object SocketIOPacket extends LazyLogging {
 
   def apply(namespace:String) = new SocketIOPacket(namespace)
-  def apply(namespace:String, ackId:Int) = new SocketIOPacket(namespace, Some(ackId))
+  def apply(namespace:String, ackId:Long) = new SocketIOPacket(namespace, Some(ackId))
   def apply(namespace:String, payload:Option[String]) = new SocketIOPacket(namespace, None, payload)
-  def apply(namespace:String, ackId:Int, payload:Option[String]) = new SocketIOPacket(namespace, Some(ackId), payload)
+  def apply(namespace:String, ackId:Long, payload:Option[String]) = new SocketIOPacket(namespace, Some(ackId), payload)
 
   def fromBytes(bytes: Array[Byte]): Try[SocketIOPacket] = {
     val str = (bytes.map(_.toChar)).mkString
