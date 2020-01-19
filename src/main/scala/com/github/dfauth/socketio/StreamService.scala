@@ -19,22 +19,22 @@ import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.reflect.ClassTag
-import com.github.dfauth.socketio.Functions.asyncUnwrapper
+import com.github.dfauth.socketio.utils.Functions.asyncUnwrapper
 
 trait StreamService[T<: SpecificRecordBase] {
-  def subscribeSource()(implicit system: ActorSystem): Source[WithKafkaContext[T], Consumer.Control]
+  def subscribeSource()(implicit system: ActorSystem): Source[KafkaContext[T], Consumer.Control]
   def subscribeSink(): Sink[java.lang.Long, Future[Done]]
-  def subscribeFlow()(implicit system: ActorSystem): Flow[java.lang.Long, WithKafkaContext[T], NotUsed]
+  def subscribeFlow()(implicit system: ActorSystem): Flow[java.lang.Long, KafkaContext[T], NotUsed]
 }
 
 class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSettings[String, Envelope], subscription: Subscription, envelopeHandler: EnvelopeHandler[T]) extends StreamService[T] with LazyLogging {
 
   val NO_MESSAGE: String = "no-message"
 
-  def subscribeSource()(implicit system: ActorSystem): Source[WithKafkaContext[T], Consumer.Control] = {
+  def subscribeSource()(implicit system: ActorSystem): Source[KafkaContext[T], Consumer.Control] = {
     system.log.info(s"starting the subscription.")
-    val source: Source[WithKafkaContext[T], Consumer.Control] = Consumer.plainSource(consumerSettings, subscription).asJava.
-      mapAsync[WithKafkaContext[T]](1, asyncUnwrapper(envelopeHandler))
+    val source: Source[KafkaContext[T], Consumer.Control] = Consumer.plainSource(consumerSettings, subscription).asJava.
+      mapAsync[KafkaContext[T]](1, asyncUnwrapper(envelopeHandler))
       //      mapAsync(1, r => Future {
       //        authorize(r) match {
       //          case Some(event) => event
@@ -58,7 +58,7 @@ class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSetti
     )
   }
 
-  def subscribeFlow()(implicit system: ActorSystem): Flow[java.lang.Long, WithKafkaContext[T], NotUsed] = Flow.fromSinkAndSource(subscribeSink(), subscribeSource())
+  def subscribeFlow()(implicit system: ActorSystem): Flow[java.lang.Long, KafkaContext[T], NotUsed] = Flow.fromSinkAndSource(subscribeSink(), subscribeSource())
 
   // need to be implemented as per authorization
   private def authorize(r: String): Option[String] = {

@@ -1,13 +1,11 @@
 package com.github.dfauth.socketio
-import java.util.concurrent.atomic.AtomicInteger
 
-import akka.NotUsed
 import akka.actor.{ActorSystem, Cancellable}
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.Source
+import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.utils.StreamUtils
-import com.typesafe.config.ConfigFactory
 import com.github.dfauth.socketio.utils.StreamUtils._
-import org.apache.avro.specific.{SpecificRecord, SpecificRecordBase}
+import org.apache.avro.specific.SpecificRecordBase
 
 import scala.concurrent.duration._
 
@@ -52,7 +50,7 @@ case class KafkaFlowFactory(namespace:String, eventId:String)(implicit system:Ac
     val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
 
     val brokerList = system.settings.config.getString("bootstrap.servers")
-    val b = StreamService(brokerList).subscribeSource().map((e:WithKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.offset))
+    val b = StreamService(brokerList).subscribeSource().map((e:KafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.offset))
     (a,b)
   }
 }

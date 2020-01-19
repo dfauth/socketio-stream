@@ -1,4 +1,4 @@
-package com.github.dfauth.socketio;
+package com.github.dfauth.socketio.avro;
 
 import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
