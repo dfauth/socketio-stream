@@ -52,15 +52,8 @@ class KafkaSpec extends FlatSpec
 
         SocketIOServer(schemaRegistryClient)
 
-        src0.map {i => {
-          logger.info(s"\n\n\n *** WOOZ0 i: ${i} *** \n\n\n")
-          i
-        }}.runWith(sink0)
-
-        src1.map {i => {
-          logger.info(s"\n\n\n *** WOOZ1 i: ${i} *** \n\n\n")
-          i
-        }}.runWith(sink1)
+        src0.runWith(sink0)
+        src1.runWith(sink1)
 
         Await.result(system.whenTerminated, Duration.Inf)
       }
