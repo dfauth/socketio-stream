@@ -34,6 +34,16 @@
           width: 100%;
           padding: 5em;
         }
+        #form2 {
+          float: center;
+          width: 100%;
+          padding: 5em;
+        }
+        #form3 {
+          float: center;
+          width: 100%;
+          padding: 5em;
+        }
         #lower {
           float: center;
           width: 100%;
@@ -46,10 +56,11 @@
     <div id="left">left</div>
     <div id="right">right</div>
     <div id="form1">
-        <form class="form" action="">
-            <input id="m" autocomplete="off" /><button>Send</button>
-        </form>
         <button id="reset">Reset</button>
+        <button id="disconnect">Disconnect</button>
+        <button id="reconnect">Reconnect</button>
+        <button id="ackLeft">Toggle acknowledgements left</button>
+        <button id="ackRight">Toggle acknowledgements right</button>
     </div>
     <div id="lower"></div>
 </div>
@@ -57,46 +68,75 @@
 <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
 <script>
     $(function () {
-        var tOpts = {
-            polling: {
-              extraHeaders: {
-                'x-auth': 'jkdfghkldfjghkdh_big_fat_token_ksdhklhgkdfh'
+
+        var init = function(){
+            var shouldAcknowledgeLeft = false
+            var shouldAcknowledgeRight = false
+            var tOpts = {
+                polling: {
+                  extraHeaders: {
+                    'x-auth': 'jkdfghkldfjghkdh_big_fat_token_ksdhklhgkdfh'
+                  }
+                }
               }
-            }
-          }
 
-        const socket = io("/left", {
-          transportOptions: tOpts
-        });
+            const socket = io("/left", {
+              transportOptions: tOpts
+            });
 
-        const socket2 = io("/right", {
-          transportOptions: tOpts
-        });
+            const socket2 = io("/right", {
+              transportOptions: tOpts
+            });
 
-        $('form').submit(function(){
-            socket.emit('rfq', $('#m').val());
-            $('#m').val('');
-            return false;
-        });
-        $('#reset').click(function(){
-            $('#left').text("left");
-            $('#right').text("right");
-            $('#lower').text("");
-        });
-        socket.on('left', function(msg, callback) {
-            $('#left').text(JSON.stringify(msg))
-            $('#left').click(function(ack) {
-                callback({ ackId: msg })
-                $('#lower').text('acked '+msg)
-            })
-        });
-        socket2.on('right', function(msg, callback) {
-            $('#right').text(JSON.stringify(msg))
-            $('#right').click(function(ack) {
-                callback({ ackId: msg })
-                $('#lower').text('acked '+msg)
-            })
-        });
+            $('#disconnect').click(function(){
+                socket.close();
+                socket2.close();
+                $('#lower').text("disconnected");
+            });
+            $('#reconnect').click(function(){
+                init()
+                $('#lower').text("reconnected");
+            });
+            $('#ackLeft').click(function(v){
+                shouldAcknowledgeLeft = !shouldAcknowledgeLeft
+                $('#lower').text("left ack is "+shouldAcknowledgeLeft);
+            });
+            $('#ackRight').click(function(v){
+                shouldAcknowledgeRight = !shouldAcknowledgeRight
+                $('#lower').text("right ack is "+shouldAcknowledgeRight);
+            });
+            $('#reset').click(function(){
+                $('#left').text("left");
+                $('#right').text("right");
+                $('#lower').text("");
+                shouldAcknowledgeLeft = false
+                shouldAcknowledgeRight = false
+            });
+            socket.on('left', function(msg, callback) {
+                $('#left').text(JSON.stringify(msg))
+                $('#left').click(function(ack) {
+                    callback({ ackId: msg })
+                    $('#lower').text('acked '+JSON.stringify(msg))
+                })
+                if(shouldAcknowledgeLeft) {
+                    callback({ ackId: msg })
+                    $('#lower').text('left acked '+JSON.stringify(msg))
+                }
+            });
+            socket2.on('right', function(msg, callback) {
+                $('#right').text(JSON.stringify(msg))
+                $('#right').click(function(ack) {
+                    callback({ ackId: msg })
+                    $('#lower').text('right acked '+JSON.stringify(msg))
+                })
+                if(shouldAcknowledgeRight) {
+                    callback({ ackId: msg })
+                    $('#lower').text('right acked '+JSON.stringify(msg))
+                }
+            });
+        }
+        init()
+
     });
 </script>
 </body>

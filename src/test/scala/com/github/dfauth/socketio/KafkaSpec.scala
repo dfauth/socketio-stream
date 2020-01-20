@@ -8,7 +8,8 @@ import akka.http.scaladsl.server.Directives.{getFromResource, getFromResourceDir
 import akka.http.scaladsl.server.Route
 import akka.kafka.Subscriptions
 import akka.kafka.Subscriptions.TopicSubscription
-import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Flow
+import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.avro.{SpecificRecordDeserializer, SpecificRecordSerializer}
 import com.github.dfauth.socketio.kafka.KafkaSink
@@ -31,6 +32,9 @@ class KafkaSpec extends FlatSpec
   implicit val system = ActorSystem()
   implicit val materializer = ActorMaterializer()
 
+  val controller0 = new ControllingProcessor[Envelope]()
+  val controller1 = new ControllingProcessor[Envelope]()
+
   "akka streams" should "allow objects to be streamed to and from kafka preserving the order" in {
 
     try {
@@ -44,8 +48,8 @@ class KafkaSpec extends FlatSpec
       withRunningKafkaOnFoundPort(EmbeddedKafkaConfig(kafkaPort = 9092, zooKeeperPort = 2181)) { implicit config =>
         val props = connectionProperties(config)
 
-        val src0 = tickingSupplyOf(testEventSupplier(topic0))
-        val src1 = tickingSupplyOf(anotherTestEventSupplier(topic1), secondsOf(0.917))
+        val src0 = tickingSupplyOf(testEventSupplier(topic0)).via(Flow.fromProcessor(() => controller0))
+        val src1 = tickingSupplyOf(anotherTestEventSupplier(topic1), secondsOf(0.917)).via(Flow.fromProcessor(() => controller1))
 
         val sink0 = KafkaSink(topic0, props, envSerializer)
         val sink1 = KafkaSink(topic1, props, envSerializer)
@@ -54,6 +58,11 @@ class KafkaSpec extends FlatSpec
 
         src0.runWith(sink0)
         src1.runWith(sink1)
+
+        System.in.read();
+        logger.info("toggling...")
+        controller0.off
+        controller1.off
 
         Await.result(system.whenTerminated, Duration.Inf)
       }

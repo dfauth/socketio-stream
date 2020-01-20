@@ -167,3 +167,32 @@ class PartialFunctionProcessor[I, O](val f:PartialFunction[I, O], override val n
     })
   }
 }
+
+class ControllingProcessor[T](override val name:Option[String] = None) extends FunctionProcessor[T, T](t => t) {
+
+  private val _toggle = new AtomicBoolean(true)
+
+  def toggle:Unit = {
+    if(_toggle.get()) {
+      off
+    } else {
+      on
+    }
+  }
+
+  def on:Unit = {
+    _toggle.getAndSet(true)
+    subscription.map{s => s.request(Long.MaxValue)}
+  }
+
+  def off:Unit = {
+    _toggle.getAndSet(false)
+    subscription.map{s => s.cancel()}
+  }
+
+  override def onNext(t:T): Unit = {
+    if(_toggle.get()) {
+      super.onNext(t);
+    }
+  }
+}
