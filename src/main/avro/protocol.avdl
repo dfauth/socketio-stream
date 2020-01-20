@@ -11,8 +11,14 @@ protocol Example {
   record TestEvent {
     string name;
     int ackId;
-    string topic;
     string payload;
+  }
+
+  record AnotherTestEvent {
+    string name;
+    int ackId;
+    int payload;
+    timestamp_ms ts;
   }
 
 }

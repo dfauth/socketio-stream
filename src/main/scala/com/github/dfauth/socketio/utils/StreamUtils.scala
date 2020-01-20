@@ -3,9 +3,11 @@ package com.github.dfauth.socketio.utils
 import java.time.Duration
 import java.time.temporal.{ChronoUnit, TemporalAmount}
 import java.util.concurrent.TimeUnit
+import java.util.function.Supplier
 
+import akka.actor.Cancellable
 import akka.{Done, NotUsed}
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
 
@@ -27,6 +29,8 @@ object StreamUtils extends LazyLogging {
   val ONE_SECOND = FiniteDuration(1, TimeUnit.SECONDS)
 
   def secondsOf(d:Double) = FiniteDuration((d*1000).toLong, TimeUnit.MILLISECONDS)
+
+  def tickingSupplyOf[T](supplier:Supplier[T], delay:FiniteDuration = ONE_SECOND):Source[T, Cancellable] = Source.tick(delay, delay, supplier).map(s => s.get())
 }
 
 case class DelayedClosePublisher[T](payload: Future[T], delay:TemporalAmount = Duration.ofSeconds(2))(implicit ec:ExecutionContext) extends Publisher[T] {

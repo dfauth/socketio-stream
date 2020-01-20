@@ -1,6 +1,7 @@
 package com.github.dfauth.socketio
 
 import akka.actor.{ActorSystem, Cancellable}
+import akka.kafka.Subscription
 import akka.stream.scaladsl.Source
 import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.utils.StreamUtils
@@ -45,13 +46,13 @@ case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay
   }
 }
 
-case class KafkaFlowFactory(namespace:String, eventId:String, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory {
+case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory {
 
   override def create[T >: Ackable with Eventable,U](ctx: UserContext[U]) = {
     val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
 
     val brokerList = system.settings.config.getString("bootstrap.servers")
-    val b = StreamService(brokerList, schemaRegClient).subscribeSource().map((e:KafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.offset))
+    val b = StreamService(brokerList, subscription, schemaRegClient).subscribeSource().map((e:KafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.offset))
     (a,b)
   }
 }

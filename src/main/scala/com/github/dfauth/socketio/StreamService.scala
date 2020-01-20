@@ -1,24 +1,18 @@
 package com.github.dfauth.socketio
 
-import java.util.concurrent.CompletionStage
-
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
-import akka.japi.function.Function
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.{ConsumerSettings, Subscription, Subscriptions}
+import akka.kafka.{ConsumerSettings, Subscription}
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.github.dfauth.socketio.avro.{SpecificRecordDeserializer, SpecificRecordSerializer}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.avro.specific.SpecificRecordBase
-import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
+import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 
-import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.reflect.ClassTag
 import com.github.dfauth.socketio.utils.Functions.asyncUnwrapper
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 
@@ -36,15 +30,6 @@ class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSetti
     system.log.info(s"starting the subscription.")
     val source: Source[KafkaContext[T], Consumer.Control] = Consumer.plainSource(consumerSettings, subscription).asJava.
       mapAsync[KafkaContext[T]](1, asyncUnwrapper(envelopeHandler))
-      //      mapAsync(1, r => Future {
-      //        authorize(r) match {
-      //          case Some(event) => event
-      //          case None => NO_MESSAGE
-      //        }
-      //      }).filterNot(_ == NO_MESSAGE).
-      //      mapAsync(1)(r => Future {
-      //        scrub(r)
-      //      })
       .map { e =>
       logger.error(s"WOOZ ${e}")
       e
@@ -73,7 +58,7 @@ class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSetti
 }
 
 object StreamService {
-  def apply[T <: SpecificRecordBase](brokerList: String, schemaRegClient: SchemaRegistryClient)(implicit system: ActorSystem):StreamService[T] = {
+  def apply[T <: SpecificRecordBase](brokerList: String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system: ActorSystem):StreamService[T] = {
 
     val schemaRegUrl = system.settings.config.getString("schemaRegUrl")
     val deserializer:SpecificRecordDeserializer[Envelope] = SpecificRecordDeserializer.Builder
@@ -87,8 +72,6 @@ object StreamService {
       .withSchemaRegistryURL(schemaRegUrl)
       .build()
 
-    val topics: Set[String] = system.settings.config.getStringList("kafka.topics").asScala.toSet
-    lazy val subscription: Subscription = Subscriptions.topics(topics)
     val stringDeserializer: Deserializer[String] = new StringDeserializer
     val envelopeHandler = new EnvelopeHandler[T](serializer, deserializer.asInstanceOf[SpecificRecordDeserializer[T]])
 
