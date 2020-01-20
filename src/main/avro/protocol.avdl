@@ -8,9 +8,10 @@ protocol Example {
     bytes payload;
   }
 
-  record Event {
+  record TestEvent {
     string name;
-    string schemaRegistryTopic;
+    int ackId;
+    string topic;
     string payload;
   }
 

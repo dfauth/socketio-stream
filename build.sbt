@@ -53,20 +53,12 @@ lazy val root = (project in file("."))
       kafkaReg,
       akkaStreamsKafka,
       kafkaAvroSerializer,
-//      kafkaStreams,
       kafkaClient,
-//      embeddedKafka,
-//      play,
-//      springMessaging,
-//      springWebsocket,
-//      javaxWebsocket,
-//      testNG,
-//      tyrus,
-//      akkaHttpTestKit,
+      embeddedKafka,
       jodaTime,
       avro,
       socketioClient
-      )
+    )
   )
   .enablePlugins(AssemblyPlugin)
 

@@ -84,7 +84,7 @@
             $('#lower').text("");
         });
         socket.on('left', function(msg, callback) {
-            $('#left').text(msg);
+            $('#left').text(JSON.stringify(msg))
             $('#left').click(function(ack) {
                 callback({ ackId: msg })
                 $('#lower').text('acked '+msg)

@@ -22,20 +22,41 @@ object Processors {
   }
 }
 
-trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
+trait AbstractBaseSubscriber[T] extends Subscriber[T] with LazyLogging {
 
   val name:Option[String] = None
-  var subscriber:Option[Subscriber[_ >: O]] = None
   var subscription:Option[Subscription] = None
-  val flag = new AtomicBoolean(false)
 
-  override def onSubscribe(s: Subscription): Unit = {
+  def onSubscribe(s: Subscription): Unit = {
     subscription = Some(s)
     logger.debug(withName("onSubscribe"))
     init()
   }
 
-  override def onError(t: Throwable): Unit = subscriber.map(_.onError(t))
+  def onNext(t: T): Unit
+
+  def onError(t: Throwable): Unit = {
+    logger.error(t.getMessage, t)
+  }
+
+  def onComplete(): Unit
+
+  def withName(str: String): String = name.map {s => s"${s} ${str}"}.getOrElse {str}
+
+  protected def init(): Unit = {
+    subscription.map(s => s.request(Int.MaxValue))
+  }
+}
+
+trait AbstractBaseProcessor[I, O] extends AbstractBaseSubscriber[I] with Processor[I, O] with LazyLogging {
+
+  var subscriber:Option[Subscriber[_ >: O]] = None
+  val flag = new AtomicBoolean(false)
+
+  override def onError(t: Throwable): Unit = {
+    super.onError(t)
+    subscriber.map(_.onError(t))
+  }
 
   override def onComplete(): Unit = subscriber.map(_.onComplete())
 
@@ -45,9 +66,7 @@ trait AbstractBaseProcessor[I, O] extends Processor[I, O] with LazyLogging {
     init()
   }
 
-  def withName(str: String): String = name.map {s => s"${s} ${str}"}.getOrElse {str}
-
-  private def init(): Unit = {
+  protected override def init(): Unit = {
     subscriber.foreach(s => {
       subscription.foreach(q => {
         if(flag.compareAndSet(false, true)) {

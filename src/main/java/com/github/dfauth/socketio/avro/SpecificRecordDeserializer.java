@@ -45,7 +45,7 @@ public abstract class SpecificRecordDeserializer<T> implements Deserializer<T> {
             return new Builder(schemaRegistryUrl, capacity, isSchemaAutoRegistered, schemaRegistryClient);
         }
 
-        public Builder withClient(SchemaRegistryClient client) {
+        public Builder withSchemaRegistryClient(SchemaRegistryClient client) {
             return new Builder(schemaRegistryUrl, capacity, isAutoRegisterSchema, client);
         }
 

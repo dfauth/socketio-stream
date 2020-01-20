@@ -20,6 +20,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 import com.github.dfauth.socketio.utils.Functions.asyncUnwrapper
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 
 trait StreamService[T<: SpecificRecordBase] {
   def subscribeSource()(implicit system: ActorSystem): Source[KafkaContext[T], Consumer.Control]
@@ -72,11 +73,12 @@ class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSetti
 }
 
 object StreamService {
-  def apply[T <: SpecificRecordBase](brokerList: String)(implicit system: ActorSystem):StreamService[T] = {
+  def apply[T <: SpecificRecordBase](brokerList: String, schemaRegClient: SchemaRegistryClient)(implicit system: ActorSystem):StreamService[T] = {
 
     val schemaRegUrl = system.settings.config.getString("schemaRegUrl")
     val deserializer:SpecificRecordDeserializer[Envelope] = SpecificRecordDeserializer.Builder
       .builder()
+      .withSchemaRegistryClient(schemaRegClient)
       .withSchemaRegistryURL(schemaRegUrl)
       .build()
 
