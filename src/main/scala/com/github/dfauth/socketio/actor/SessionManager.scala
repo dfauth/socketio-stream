@@ -27,7 +27,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
   val streamSink:Sink[Command, NotUsed] = MergeHub.source[Command](16).to(sink).run()
   val streamFlow:Flow[Command, Command, NotUsed] = Flow.fromSinkAndSource(streamSink, streamSource)
   streamSource.filter(_.namespace == "").runWith(ActorSink.actorRef(ctx.self,
-    StreamComplete(userCtx.token),
+    EndSession(userCtx.token),
     t => ErrorMessage(userCtx.token, t)
   ))
 
@@ -40,11 +40,6 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
       BlahString(e.getMessage, 0)
     }
   }
-
-  def bidiFlow(namespace:String): BidiFlow[Ackable with Eventable, Command, Command, Ackable with Eventable, NotUsed] = BidiFlow.fromFunctions(
-    outbound(namespace),
-    inbound
-  )
 
   def initializeSources() = {
     flowFactories.foreach { f =>

@@ -1,13 +1,13 @@
 package com.github.dfauth.socketio.actor
 
-import akka.actor.typed.receptionist.Receptionist.Register
-import akka.actor.typed.receptionist.ServiceKey
+import akka.actor.typed.receptionist.Receptionist.{Listing, Register}
+import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 trait AskCommand[T] {
   val replyTo:ActorRef[T]
@@ -87,5 +87,6 @@ object ActorUtils extends LazyLogging {
     })
     p.future
   }
+
 }
 

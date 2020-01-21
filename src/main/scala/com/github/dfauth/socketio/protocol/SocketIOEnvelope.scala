@@ -30,7 +30,11 @@ case object Connect extends SocketIOMessageType(0) {
     case Some(SocketIOPacket(namespace, _, _)) => AddNamespace(ctx.token, namespace)
   }
 }
-case object Disconnect extends SocketIOMessageType(1)
+case object Disconnect extends SocketIOMessageType(1) {
+  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
+    case Some(SocketIOPacket(namespace, _, _)) => EndSession(ctx.token)
+  }
+}
 case object Event extends SocketIOMessageType(2) {
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = {
     data.map { e => {

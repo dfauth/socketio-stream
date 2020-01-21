@@ -30,10 +30,6 @@ class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSetti
     system.log.info(s"starting the subscription.")
     val source: Source[KafkaContext[T], Consumer.Control] = Consumer.plainSource(consumerSettings, subscription).asJava.
       mapAsync[KafkaContext[T]](1, asyncUnwrapper(envelopeHandler))
-      .map { e =>
-      logger.error(s"WOOZ ${e}")
-      e
-    }
       .buffer(1024, OverflowStrategy.dropHead).asScala
     source
   }

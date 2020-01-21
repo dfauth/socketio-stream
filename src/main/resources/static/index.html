@@ -11,7 +11,7 @@
         #content {
           height: 50%;
         }
-        #left {
+        #leftContent {
           float: left;
           height: 50%;
           width: 50%;
@@ -20,7 +20,7 @@
           box-sizing: border-box;
           padding: 5em;
         }
-        #right {
+        #rightContent {
           float: right;
           height: 50%;
           width: 50%;
@@ -29,22 +29,23 @@
           box-sizing: border-box;
           padding: 5em;
         }
-        #form1 {
-          float: center;
-          width: 100%;
+        #leftControl {
+          float: left;
+          height: 50%;
+          width: 50%;
+          overflow: auto;
+          box-sizing: border-box;
           padding: 5em;
         }
-        #form2 {
-          float: center;
-          width: 100%;
+        #rightControl {
+          float: right;
+          height: 50%;
+          width: 50%;
+          overflow: auto;
+          box-sizing: border-box;
           padding: 5em;
         }
-        #form3 {
-          float: center;
-          width: 100%;
-          padding: 5em;
-        }
-        #lower {
+        #lowerContent {
           float: center;
           width: 100%;
           padding: 5em;
@@ -53,89 +54,115 @@
 </head>
 <body>
 <div id="content">
-    <div id="left">left</div>
-    <div id="right">right</div>
-    <div id="form1">
-        <button id="reset">Reset</button>
-        <button id="disconnect">Disconnect</button>
-        <button id="reconnect">Reconnect</button>
-        <button id="ackLeft">Toggle acknowledgements left</button>
-        <button id="ackRight">Toggle acknowledgements right</button>
+    <div id="leftContent">
+        <div id="left">left</div>
     </div>
-    <div id="lower"></div>
+    <div id="rightContent">
+        <div id="right">right</div>
+    </div>
+    <div id="leftControl">
+        <button id="disconnectLeft">Disconnect</button>
+        <button id="reconnectLeft">Reconnect</button>
+        <button id="ackLeft">acknowledgements</button>
+        <div id="lowerLeft"></div>
+    </div>
+    <div id="rightControl">
+        <button id="disconnectRight">Disconnect</button>
+        <button id="reconnectRight">Reconnect</button>
+        <button id="ackRight">acknowledgements</button>
+        <div id="lowerRight"></div>
+    </div>
+    <div id="lowerContent">
+        <button id="reset">Reset</button>
+        <div id="lower"></div>
+    </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
 <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
 <script>
     $(function () {
 
-        var init = function(){
-            var shouldAcknowledgeLeft = false
-            var shouldAcknowledgeRight = false
-            var tOpts = {
-                polling: {
-                  extraHeaders: {
-                    'x-auth': 'jkdfghkldfjghkdh_big_fat_token_ksdhklhgkdfh'
-                  }
-                }
+        var tOpts = {
+            polling: {
+              extraHeaders: {
+                'x-auth': 'jkdfghkldfjghkdh_big_fat_token_ksdhklhgkdfh'
               }
+            }
+          }
+
+        var initLeft = function(){
+            var shouldAcknowledgeLeft = false
 
             const socket = io("/left", {
               transportOptions: tOpts
             });
 
-            const socket2 = io("/right", {
-              transportOptions: tOpts
-            });
-
-            $('#disconnect').click(function(){
+            $('#disconnectLeft').click(function(){
                 socket.close();
-                socket2.close();
-                $('#lower').text("disconnected");
+                $('#lowerLeft').text("disconnected");
             });
-            $('#reconnect').click(function(){
-                init()
-                $('#lower').text("reconnected");
+            $('#reconnectLeft').click(function(){
+                initLeft()
+                $('#lowerLeft').text("reconnected");
             });
             $('#ackLeft').click(function(v){
                 shouldAcknowledgeLeft = !shouldAcknowledgeLeft
-                $('#lower').text("left ack is "+shouldAcknowledgeLeft);
-            });
-            $('#ackRight').click(function(v){
-                shouldAcknowledgeRight = !shouldAcknowledgeRight
-                $('#lower').text("right ack is "+shouldAcknowledgeRight);
-            });
-            $('#reset').click(function(){
-                $('#left').text("left");
-                $('#right').text("right");
-                $('#lower').text("");
-                shouldAcknowledgeLeft = false
-                shouldAcknowledgeRight = false
+                $('#lowerLeft').text("left ack is "+shouldAcknowledgeLeft);
             });
             socket.on('left', function(msg, callback) {
                 $('#left').text(JSON.stringify(msg))
                 $('#left').click(function(ack) {
                     callback({ ackId: msg })
-                    $('#lower').text('acked '+JSON.stringify(msg))
+                    $('#lowerLeft').text('acked '+JSON.stringify(msg))
                 })
                 if(shouldAcknowledgeLeft) {
                     callback({ ackId: msg })
-                    $('#lower').text('left acked '+JSON.stringify(msg))
-                }
-            });
-            socket2.on('right', function(msg, callback) {
-                $('#right').text(JSON.stringify(msg))
-                $('#right').click(function(ack) {
-                    callback({ ackId: msg })
-                    $('#lower').text('right acked '+JSON.stringify(msg))
-                })
-                if(shouldAcknowledgeRight) {
-                    callback({ ackId: msg })
-                    $('#lower').text('right acked '+JSON.stringify(msg))
+                    $('#lowerLeft').text('left acked '+JSON.stringify(msg))
                 }
             });
         }
-        init()
+        var initRight = function(){
+            var shouldAcknowledgeRight = false
+
+            const socket = io("/right", {
+              transportOptions: tOpts
+            });
+
+            $('#disconnectRight').click(function(){
+                socket.close();
+                $('#lowerRight').text("disconnected");
+            });
+            $('#reconnectRight').click(function(){
+                initRight()
+                $('#lowerRight').text("reconnected");
+            });
+            $('#ackRight').click(function(v){
+                shouldAcknowledgeRight = !shouldAcknowledgeRight
+                $('#lowerRight').text("right ack is "+shouldAcknowledgeRight);
+            });
+            socket.on('right', function(msg, callback) {
+                $('#right').text(JSON.stringify(msg))
+                $('#right').click(function(ack) {
+                    callback({ ackId: msg })
+                    $('#lowerRight').text('right acked '+JSON.stringify(msg))
+                })
+                if(shouldAcknowledgeRight) {
+                    callback({ ackId: msg })
+                    $('#lowerRight').text('right acked '+JSON.stringify(msg))
+                }
+            });
+        }
+        initLeft()
+        initRight()
+        $('#reset').click(function(){
+            $('#left').text("left");
+            $('#right').text("right");
+            $('#lower').text("");
+            $('#lowerRight').text("");
+            $('#lowerLeft').text("");
+            shouldAcknowledgeLeft = false
+            shouldAcknowledgeRight = false
+        });
 
     });
 </script>

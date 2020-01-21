@@ -56,6 +56,9 @@ class KafkaSpec extends FlatSpec
 
         SocketIOServer(schemaRegistryClient)
 
+        System.in.read();
+        logger.info("running streams...")
+
         src0.runWith(sink0)
         src1.runWith(sink1)
 
