@@ -66,16 +66,18 @@ trait AbstractBaseProcessor[I, O] extends AbstractBaseSubscriber[I] with Process
     init()
   }
 
+  protected def withSubscription(q: Subscription): Subscription = q
+
   protected override def init(): Unit = {
     subscriber.foreach(s => {
       subscription.foreach(q => {
-        if(flag.compareAndSet(false, true)) {
-          s.onSubscribe(q)
+//        if(flag.compareAndSet(false, true)) {
+          s.onSubscribe(withSubscription(q))
           logger.info(withName("subscribed"))
-        } else {
-          //logger.error(withName("unexpectedly already subscribed"))
-          throw new RuntimeException(withName("unexpectedly already subscribed"))
-        }
+//        } else {
+//          logger.warn(withName("unexpectedly already subscribed"))
+//          throw new RuntimeException(withName("unexpectedly already subscribed"))
+//        }
       })
     })
   }
@@ -168,31 +170,69 @@ class PartialFunctionProcessor[I, O](val f:PartialFunction[I, O], override val n
   }
 }
 
+object ControllingProcessor {
+  def apply[T]() = new ControllingProcessor[T]()
+  def apply[T](name:String) = new ControllingProcessor[T](Some(name))
+}
+
 class ControllingProcessor[T](override val name:Option[String] = None) extends FunctionProcessor[T, T](t => t) {
 
   private val _toggle = new AtomicBoolean(true)
 
-  def toggle:Unit = {
+  private var controllingSubscription:Option[ControllingSubscription] = None
+
+  def toggle = {
     if(_toggle.get()) {
       off
     } else {
       on
     }
+    this
   }
 
-  def on:Unit = {
-    _toggle.getAndSet(true)
-    subscription.map{s => s.request(Long.MaxValue)}
+  def on = {
+    _toggle.set(true)
+    controllingSubscription.map { _.resume()}
+    this
   }
 
-  def off:Unit = {
-    _toggle.getAndSet(false)
-    subscription.map{s => s.cancel()}
+  def off = {
+    _toggle.set(false)
+    this
   }
 
-  override def onNext(t:T): Unit = {
-    if(_toggle.get()) {
-      super.onNext(t);
+  def terminate = {
+    _toggle.set(false)
+    controllingSubscription.map{s => s.cancel()}
+    this
+  }
+
+  override def withSubscription(q: Subscription): Subscription = {
+    controllingSubscription = Some(ControllingSubscription(q, _toggle))
+    controllingSubscription.get
+  }
+}
+
+case class ControllingSubscription(nested:Subscription, toggle:AtomicBoolean) extends Subscription with LazyLogging {
+
+  private var pending:Option[Long] = None
+
+  def resume():Unit = {
+    pending.map {l => {
+      nested.request(l)
+      logger.info(s"requested pending demand ${l}")
+    }}
+  }
+
+  override def request(l: Long): Unit = {
+    if(toggle.get()) {
+      nested.request(l)
+    } else {
+      // save it
+      pending = Some(l)
+      logger.info(s"parked pending demand ${pending}")
     }
   }
+
+  override def cancel(): Unit = nested.cancel()
 }

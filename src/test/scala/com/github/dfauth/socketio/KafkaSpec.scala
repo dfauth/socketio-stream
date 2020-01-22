@@ -1,6 +1,6 @@
 package com.github.dfauth.socketio
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.function.Supplier
 
 import akka.actor.ActorSystem
@@ -100,7 +100,7 @@ class KafkaSpec extends FlatSpec
 
     val envHandler = new EnvelopeHandler[TestEvent](serializer, deserializer)
 
-    val i = new AtomicInteger()
+    val i = new AtomicLong()
 
     () => {
       val e = new TestEvent()
@@ -127,7 +127,7 @@ class KafkaSpec extends FlatSpec
 
     val envHandler = new EnvelopeHandler[AnotherTestEvent](serializer, deserializer)
 
-    val i = new AtomicInteger()
+    val i = new AtomicLong()
 
     () => {
       val e = new AnotherTestEvent()

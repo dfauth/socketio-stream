@@ -38,6 +38,7 @@ val avro = "org.apache.avro" % "avro" % "1.8.2"
 val kafkaReg = "io.confluent" % "kafka-schema-registry-client" % "4.1.1"
 val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "4.1.1"
 val jodaTime = "joda-time" % "joda-time" % "2.10.1"
+val reactiveStreams = "org.reactivestreams" % "reactive-streams" % "1.0.3"
 
 val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging, logback)
 
@@ -47,6 +48,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= commonScalaDeps ++ Seq(
       akkaHttp,
       akkaStreamTyped,
+      reactiveStreams,
       akkaTyped,
       guice,
       kafkaCore,
