@@ -15,7 +15,7 @@ import static com.github.dfauth.socketio.utils.TryCatch.tryCatch;
 public class Functions {
 
     public static <T extends SpecificRecordBase> Function<ConsumerRecord<String, Envelope>, CompletionStage<KafkaContext<T>>> asyncUnwrapper(EnvelopeHandler<T> envelopeHandler) {
-        return r -> CompletableFuture.supplyAsync(() -> tryCatch(() -> KafkaContext.apply(r.topic(), r.offset(), envelopeHandler.extractRecord(r.value()))));
+        return r -> CompletableFuture.supplyAsync(() -> tryCatch(() -> KafkaContext.apply(r.topic(), r.partition(), r.offset(), envelopeHandler.extractRecord(r.value()))));
     }
 
 }

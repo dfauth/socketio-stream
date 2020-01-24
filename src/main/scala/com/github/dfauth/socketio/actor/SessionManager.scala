@@ -68,7 +68,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
         Behaviors.same
       }
       case EndSession(id) => {
-        ctx.log.info(s"session ${id} stopped")
+        ctx.log.info(s"sessionManager: session ${id} stopped")
         Behaviors.stopped
       }
       case x => {

@@ -17,7 +17,7 @@ object Supervisor {
 
 class Supervisor(val ctx: ActorContext[Command], flowFactories:Seq[FlowFactory]) extends AbstractBehavior[Command](ctx) with LazyLogging with MonitorMixIn[Command] {
 
-  ctx.log.info("supervisor started")
+  ctx.log.info("supervisor: started")
 
   private var cache:Map[ServiceKey[Command], Future[ActorRef[Command]]] = Map.empty
 
@@ -49,7 +49,8 @@ class Supervisor(val ctx: ActorContext[Command], flowFactories:Seq[FlowFactory])
             case Nil => {
               logger.info(s"supervisor: no actor found for id: ${id}")
               val ref = ctx.spawn[Command](SessionManager(userCtx, flowFactories), id)
-              subscribeToActor(serviceKey(id), ref)
+              registerActor(serviceKey(id), ref)
+              subscribeToActor(serviceKey(id), ctx.self)
               replyTo ! SessionCreated(id)
               logger.info(s"supervisor: replied ${SessionCreated(id)}")
               Success(ref)
@@ -70,6 +71,9 @@ class Supervisor(val ctx: ActorContext[Command], flowFactories:Seq[FlowFactory])
           cache = cache + (key -> f)
           logger.info(s"supervisor: added cache key ${key} -> ${f}")
         }
+      }
+      case c:ActorCreatedCommand => {
+        logger.info(s"supervisor: received ${c}")
       }
       case ActorTerminatedCommand(key) => {
         cache = cache - key

@@ -57,6 +57,8 @@ object ActorMonitor {
     ctx.spawnAnonymous(b)
   }
 
+  def registerActor[T](ctx:ActorContext[T])(key:ServiceKey[T], ref:ActorRef[T]) = ctx.system.receptionist ! Receptionist.Register(key, ref)
+
   trait ActorMonitorCommand[T] {
     val key: ServiceKey[T]
   }
@@ -75,5 +77,7 @@ trait MonitorMixIn[T] {
   def subscribeToActor(key: ServiceKey[T], ref:ActorRef[T]) = ActorMonitor.subscribeToActor(ctx, adapter)(key, ref)
 
   def listingAdapter(key:ServiceKey[T], ref:ActorRef[T]) = ActorMonitor.listingAdapter(ctx, adapter)(key, ref)
+
+  def registerActor(key:ServiceKey[T], ref:ActorRef[T]) = ActorMonitor.registerActor(ctx)(key, ref)
 
 }
