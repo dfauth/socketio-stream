@@ -4,7 +4,7 @@ version := "0.1-SNAPSHOT"
 
 scalaVersion := "2.12.6"
 
-val kafkaVersion = "2.1.1"
+val kafkaVersion = "2.4.0"
 val akkaVersion = "2.6.1"
 val akkaHttpVersion = "10.1.10"
 val springVersion = "5.1.8.RELEASE"

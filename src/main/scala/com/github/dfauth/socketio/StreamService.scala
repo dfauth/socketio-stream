@@ -24,8 +24,6 @@ trait StreamService[T<: SpecificRecordBase] {
 
 class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSettings[String, Envelope], subscription: Subscription, envelopeHandler: EnvelopeHandler[T]) extends StreamService[T] with LazyLogging {
 
-  val NO_MESSAGE: String = "no-message"
-
   def subscribeSource()(implicit system: ActorSystem): Source[KafkaContext[T], Consumer.Control] = {
     system.log.info(s"starting the subscription.")
     val source: Source[KafkaContext[T], Consumer.Control] = Consumer.plainSource(consumerSettings, subscription).asJava.
