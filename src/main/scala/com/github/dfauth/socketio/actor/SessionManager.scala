@@ -9,6 +9,7 @@ import akka.stream.typed.scaladsl.ActorSink
 import com.github.dfauth.socketio
 import com.github.dfauth.socketio.Processors._
 import com.github.dfauth.socketio._
+import com.github.dfauth.socketio.utils.StreamUtils._
 
 object SessionManager {
   def apply[U](userCtx:UserContext[U], flowFactories:Seq[FlowFactory]): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx, flowFactories))
@@ -26,7 +27,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
   val (sink, source) = sinkToSource[Command]
   val streamSink:Sink[Command, NotUsed] = MergeHub.source[Command](16).to(sink).run()
   val streamFlow:Flow[Command, Command, NotUsed] = Flow.fromSinkAndSource(streamSink, streamSource)
-  streamSource.filter(_.namespace == "").runWith(ActorSink.actorRef(ctx.self,
+  streamSource.filter(_.namespace == "").map(loggingFn("WOOZ")).runWith(ActorSink.actorRef(ctx.self,
     EndSession(userCtx.token),
     t => ErrorMessage(userCtx.token, t)
   ))

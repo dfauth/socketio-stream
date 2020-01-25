@@ -34,7 +34,7 @@ case class ErrorMessage(id:String, t:Throwable) extends ControlCommand
 case class EventCommand(id:String, namespace:String, payload:Option[String] = None) extends Command
 case class AckCommand(id:String, namespace:String, ackId:Long, payload:Option[String] = None) extends Command
 case class MessageCommand[T](id:String, namespace:String, payload:T) extends Command
-case class StreamComplete(id:String, namespace:String) extends Command
+case class EndStream(id:String, namespace:String) extends Command
 class ActorMonitorCommand(key:ServiceKey[Command]) extends ControlCommand {
   val id:String = key.id
 }

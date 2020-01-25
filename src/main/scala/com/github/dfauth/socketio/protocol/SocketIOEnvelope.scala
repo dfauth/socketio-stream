@@ -32,7 +32,7 @@ case object Connect extends SocketIOMessageType(0) {
 }
 case object Disconnect extends SocketIOMessageType(1) {
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
-    case Some(SocketIOPacket(namespace, _, _)) => EndSession(ctx.token)
+    case Some(SocketIOPacket(namespace, _, _)) => EndStream(ctx.token, namespace)
   }
 }
 case object Event extends SocketIOMessageType(2) {
