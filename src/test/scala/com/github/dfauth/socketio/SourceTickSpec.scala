@@ -10,6 +10,7 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
+import com.github.dfauth.socketio.reactivestreams.{ControllingProcessor, Processors}
 import com.github.dfauth.socketio.utils.StreamUtils
 import com.github.dfauth.socketio.utils.StreamUtils._
 import com.typesafe.scalalogging.LazyLogging

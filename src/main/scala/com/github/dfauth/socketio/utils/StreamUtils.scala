@@ -9,7 +9,7 @@ import java.util.function.{Consumer, Supplier}
 import akka.actor.Cancellable
 import akka.{Done, NotUsed}
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.github.dfauth.socketio.AbstractBaseSubscriber
+import com.github.dfauth.socketio.reactivestreams.AbstractBaseSubscriber
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
 
@@ -61,41 +61,5 @@ case class DelayedClosePublisher[T](payload: Future[T], delay:TemporalAmount = D
   }
 }
 
-case class QueuePublisher[T](queue:BlockingQueue[T]) extends Publisher[T] with Subscription {
-
-  var optSubscriber:Option[Subscriber[_ >: T]] = None
-  val shouldContinue = new AtomicBoolean(true)
-  val latch = new Semaphore(0)
-  var optRunningThread:Option[Thread] = None
-
-  def start:Unit = {
-    try {
-      optRunningThread = Some(Thread.currentThread())
-      while (shouldContinue.get()) {
-        latch.acquire()
-        val t = queue.take()
-        if (t != null) {
-          optSubscriber.map {
-            _.onNext(t)
-          }
-        }
-      }
-      optSubscriber.map {
-        _.onComplete()
-      }
-    } catch {
-      case t:Throwable => optSubscriber.map { _.onError(t)}
-    }
-  }
-
-  override def subscribe(subscriber: Subscriber[_ >: T]): Unit = {
-    optSubscriber = Some(subscriber)
-    subscriber.onSubscribe(this)
-  }
-
-  override def request(l: Long): Unit = latch.release(l.toInt)
-
-  override def cancel(): Unit = shouldContinue.set(false)
-}
 
 

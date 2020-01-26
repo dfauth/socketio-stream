@@ -3,7 +3,7 @@ package com.github.dfauth.socketio.utils
 import akka.NotUsed
 import akka.stream.ClosedShape
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Merge, RunnableGraph, Sink, Source}
-import com.github.dfauth.socketio.{FunctionProcessor, PartialFunctionProcessor}
+import com.github.dfauth.socketio.reactivestreams.{FunctionProcessor, PartialFunctionProcessor}
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.Processor
 

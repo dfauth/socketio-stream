@@ -13,10 +13,11 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.{ByteString, Timeout}
 import com.github.dfauth.socketio.actor.ActorUtils._
 import com.github.dfauth.socketio.actor._
-import com.github.dfauth.socketio.Processors._
+import com.github.dfauth.socketio.reactivestreams.Processors._
 import com.github.dfauth.socketio.protocol.EngineIOEnvelope._
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.protocol._
+import com.github.dfauth.socketio.reactivestreams.{FunctionProcessor, PartialFunctionProcessor, TryFunctionProcessor}
 import com.github.dfauth.socketio.utils.{DelayedClosePublisher, MergingGraph, ShortCircuit}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging

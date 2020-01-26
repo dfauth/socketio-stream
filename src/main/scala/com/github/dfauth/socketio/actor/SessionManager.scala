@@ -7,7 +7,7 @@ import akka.stream.{FlowShape, Graph, Materializer, SourceShape}
 import akka.stream.scaladsl.{BidiFlow, BroadcastHub, Flow, GraphDSL, Keep, MergeHub, RunnableGraph, Sink, Source}
 import akka.stream.typed.scaladsl.ActorSink
 import com.github.dfauth.socketio
-import com.github.dfauth.socketio.Processors._
+import com.github.dfauth.socketio.reactivestreams.Processors._
 import com.github.dfauth.socketio._
 import com.github.dfauth.socketio.utils.StreamUtils._
 

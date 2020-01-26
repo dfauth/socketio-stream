@@ -13,6 +13,7 @@ import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.avro.{SpecificRecordDeserializer, SpecificRecordSerializer}
 import com.github.dfauth.socketio.kafka.KafkaSink
+import com.github.dfauth.socketio.reactivestreams.ControllingProcessor
 import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.{FlatSpec, Matchers}

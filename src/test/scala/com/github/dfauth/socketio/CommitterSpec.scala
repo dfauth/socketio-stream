@@ -5,18 +5,20 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
+import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka.scaladsl.Consumer
 import akka.kafka._
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
 import com.github.dfauth.socketio.kafka.{KafkaSink, OffsetAndMetadata, OffsetKey, OffsetKeyDeserializer, OffsetValueDeserializer}
-import com.github.dfauth.socketio.utils.{QueuePublisher, StreamUtils}
+import com.github.dfauth.socketio.reactivestreams.QueuePublisher
 import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.{FlatSpec, Matchers}
 import com.github.dfauth.socketio.utils.StreamUtils._
+import com.google.common.collect.Queues
 import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.common.serialization.{LongDeserializer, LongSerializer, StringDeserializer}
+import org.apache.kafka.common.serialization.{Deserializer, LongDeserializer, LongSerializer, Serializer, StringDeserializer}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
@@ -30,7 +32,7 @@ class CommitterSpec extends FlatSpec
   implicit val system = ActorSystem()
   implicit val materializer = ActorMaterializer()
 
-  type KafkaRecord = Tuple4[String, Int, Long, java.lang.Long]
+  type KafkaRecord = Tuple3[CommittableOffset, String, Long]
 
   "akka streams" should "allow support committing the offset" in {
 
@@ -45,7 +47,11 @@ class CommitterSpec extends FlatSpec
         val groupId = system.settings.config.getString("kafka.consumer.groupId")
         val offsetReset = system.settings.config.getString("kafka.consumer.auto.offset.reset")
 
-        def consumerSettings: ConsumerSettings[String, java.lang.Long] = ConsumerSettings(system, new StringDeserializer, new LongDeserializer)
+        val s = new LongSerializer
+        val serializer:Serializer[Long] = (t,l) => s.serialize(t,l)
+        val d = new LongDeserializer
+        val deserializer:Deserializer[Long] = (t,l) => d.deserialize(t,l)
+        def consumerSettings: ConsumerSettings[String, Long] = ConsumerSettings(system, new StringDeserializer, deserializer)
           .withBootstrapServers(brokerList)
           .withGroupId(groupId)
           .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, offsetReset)
@@ -58,15 +64,25 @@ class CommitterSpec extends FlatSpec
         val subscription = Subscriptions.topics("topic")
         val offsetSubscription = Subscriptions.topics("__consumer_offsets")
 
-        val source = Consumer.plainSource(consumerSettings, subscription).buffer(1024, OverflowStrategy.dropHead)
+        val source = Consumer.committableSource(consumerSettings, subscription).buffer(1024, OverflowStrategy.dropHead)
         val offsetSource = Consumer.plainSource(offsetConsumerSettings, offsetSubscription).buffer(1024, OverflowStrategy.dropHead)
-        offsetSource.runWith(loggingSink("WOOZ1"))
+//        offsetSource.runWith(loggingSink("WOOZ1"))
 
         val q = new ArrayBlockingQueue[KafkaRecord](100)
 
-        source.map {r => (r.topic(), r.partition(), r.offset(), r.value())}
+        val ackQ = new ArrayBlockingQueue[Ackker[CommittableOffset]](10)
+
+        val ackQProcessor:CommittableOffset => Unit = c => {
+          c.commitScaladsl()
+        }
+
+        source.map {(r:CommittableMessage[String, Long]) => (r.committableOffset, r.record.key(), r.record.value())}
+          .map {r => {
+            ackQ.offer(Ackker(r._1, ackQProcessor))
+            r
+          }}
           .runWith(Sink.fromSubscriber(
-            StreamUtils.fromConsumer( (t:KafkaRecord) =>
+            fromConsumer( (t:KafkaRecord) =>
               Future {
                 Thread.sleep((Math.random()*1500).toInt)
                 q.offer(t)
@@ -75,27 +91,43 @@ class CommitterSpec extends FlatSpec
 
         val i = new AtomicLong()
 
-        type SupplierOfLong = () => java.lang.Long
+        type SupplierOfLong = () => Long
         val f:SupplierOfLong = () => i.getAndIncrement()
 
-        val sink = KafkaSink("topic", props, new LongSerializer)
+        val sink = KafkaSink("topic", props, serializer)
 
         Source.tick(ONE_SECOND, ONE_SECOND, f).map{f => f()}.runWith(sink)
 
         val qPub = QueuePublisher(q)
         val backSrc:Source[KafkaRecord, NotUsed] = Source.fromPublisher(qPub)
 
-
-
+//        backSrc.runWith( Sink.foreach{ kr =>
+//          Option(ackQ.take()).map { r => r.ack}
+//        })
         backSrc.runWith(loggingSink(" WOOZ this is the back channel"))
         Future {
           qPub.start
         }
 
-        Await.result(system.whenTerminated, Duration.Inf)
+        Await.result(system.whenTerminated, secondsOf(60))
       }
     } finally {
       EmbeddedKafka.stop()
+    }
+  }
+}
+
+object Ackker {
+  def apply[T](t:T, c:T=>Unit) = new Ackker(t, c)
+}
+
+class Ackker[T](t:T, c:T => Unit) {
+  var acked:Boolean = false
+
+  def ack:Unit = {
+    if(!acked) {
+      acked = true
+      c(t)
     }
   }
 }

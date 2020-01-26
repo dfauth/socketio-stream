@@ -4,7 +4,8 @@ import java.util.Properties
 
 import akka.NotUsed
 import akka.stream.scaladsl.Sink
-import com.github.dfauth.socketio.{AbstractBaseSubscriber, Envelope}
+import com.github.dfauth.socketio.Envelope
+import com.github.dfauth.socketio.reactivestreams.AbstractBaseSubscriber
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.{Serializer, StringSerializer}
 
