@@ -16,12 +16,10 @@ import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.{FlatSpec, Matchers}
 import com.github.dfauth.socketio.utils.StreamUtils._
-import com.google.common.collect.Queues
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.{Deserializer, LongDeserializer, LongSerializer, Serializer, StringDeserializer}
 
 import scala.concurrent.{Await, Future}
-import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class CommitterSpec extends FlatSpec
@@ -105,9 +103,6 @@ class CommitterSpec extends FlatSpec
 //          Option(ackQ.take()).map { r => r.ack}
 //        })
         backSrc.runWith(loggingSink(" WOOZ this is the back channel"))
-        Future {
-          qPub.start
-        }
 
         Await.result(system.whenTerminated, secondsOf(60))
       }
