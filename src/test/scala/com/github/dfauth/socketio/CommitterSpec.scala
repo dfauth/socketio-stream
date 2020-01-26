@@ -1,7 +1,7 @@
 package com.github.dfauth.socketio
 
 import java.util.concurrent._
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
@@ -11,7 +11,7 @@ import akka.kafka._
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
 import com.github.dfauth.socketio.kafka.{KafkaSink, OffsetAndMetadata, OffsetKey, OffsetKeyDeserializer, OffsetValueDeserializer}
-import com.github.dfauth.socketio.reactivestreams.QueuePublisher
+import com.github.dfauth.socketio.reactivestreams.{QueuePublisher, Throttlers, ThrottlingSubscriber}
 import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.{FlatSpec, Matchers}
@@ -102,7 +102,10 @@ class CommitterSpec extends FlatSpec
 //        backSrc.runWith( Sink.foreach{ kr =>
 //          Option(ackQ.take()).map { r => r.ack}
 //        })
-        backSrc.runWith(loggingSink(" WOOZ this is the back channel"))
+
+//        backSrc.runWith(loggingSink(" WOOZ this is the back channel"))
+
+        backSrc.runWith(ThrottlingSubscriber.sink(Throttlers.fixed(5, loggingConsumer[KafkaRecord](s"WOOZ this is the back channel"))))
 
         Await.result(system.whenTerminated, secondsOf(60))
       }

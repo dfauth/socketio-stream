@@ -3,6 +3,7 @@ package com.github.dfauth.socketio.reactivestreams
 import java.util.concurrent.{BlockingQueue, Semaphore, TimeUnit}
 import java.util.concurrent.atomic.AtomicBoolean
 
+import akka.stream.scaladsl.Source
 import org.reactivestreams.{Publisher, Subscriber, Subscription}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,11 +35,13 @@ class QueuePublisher[T](queue:BlockingQueue[T])(implicit ec:ExecutionContext) ex
     subscriber.onSubscribe(this)
   }
 
-  override def request(l: Long): Unit = Future {
-    l match {
-      case 0 =>
-      case n => dequeOne
-        request(n-1)
+  override def request(l: Long): Unit = {
+    Future {
+      l match {
+        case 0 =>
+        case n => dequeOne
+          request(n-1)
+      }
     }
   }
 

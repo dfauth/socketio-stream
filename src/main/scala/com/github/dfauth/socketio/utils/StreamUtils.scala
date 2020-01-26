@@ -23,10 +23,15 @@ object StreamUtils extends LazyLogging {
 
   def loggingSink[T](msg:String):Sink[T, Future[Done]] = Sink.foreach((t:T) => loggingFn(msg)(t))
 
-  def loggingFn[T](msg:String):T => T = t => {
-    logger.info(s"${msg} payload: ${t}")
-    t
+  def loggingFn[T](msg:String):T => T = {
+    val x = loggingConsumer[T](msg)
+      t => {
+        x(t)
+        t
+      }
   }
+
+  def loggingConsumer[T](msg:String):T => Unit = t => logger.info(s"${msg} payload: ${t}")
 
   val ONE_SECOND = FiniteDuration(1, TimeUnit.SECONDS)
 

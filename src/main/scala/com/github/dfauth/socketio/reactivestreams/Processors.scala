@@ -37,17 +37,15 @@ trait AbstractBaseProcessor[I, O] extends AbstractBaseSubscriber[I] with Process
   override def subscribe(s: Subscriber[_ >: O]): Unit = {
     subscriber = Some(s)
     logger.debug(withName("subscribe"))
-    init()
+    subscription.foreach(init(_))
   }
 
   protected def withSubscription(q: Subscription): Subscription = q
 
-  protected override def init(): Unit = {
+  protected override def init(q:Subscription): Unit = {
     subscriber.foreach(s => {
-      subscription.foreach(q => {
-          s.onSubscribe(withSubscription(q))
-          logger.info(withName("subscribed"))
-      })
+      s.onSubscribe(withSubscription(q))
+      logger.info(withName("subscribed"))
     })
   }
 }
