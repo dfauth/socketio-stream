@@ -98,18 +98,7 @@ class CommitterSpec extends FlatSpec
 
         val backSrc:Source[CommittableMessage[String, Long], NotUsed] = Source.fromPublisher(QueuePublisher(q))
 
-        backSrc.runWith( Sink.foreach{ kr =>
-          val found = new AtomicBoolean(true)
-          ackQ.stream().filter(a => {
-            found.get && a.matches(kr)
-          }).forEach(a => {
-            a.ack
-            found.set(false)
-          })
-          if(found.get) {
-            logger.error(s"failed to find record ${kr}")
-          }
-        })
+        backSrc.runWith( Sink.foreach { Ackker.process(() => ackQ.stream())})
 
         Await.result(system.whenTerminated, secondsOf(20))
       }

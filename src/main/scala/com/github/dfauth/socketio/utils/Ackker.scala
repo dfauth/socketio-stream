@@ -1,11 +1,22 @@
 package com.github.dfauth.socketio.utils
 
 import java.util
+import java.util.stream.Stream
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.typesafe.scalalogging.LazyLogging
 
-object Ackker {
+object Ackker extends LazyLogging {
+
+  def process[T](s:() => Stream[Ackker[T]]):T => Unit = r => {
+    val found = new AtomicBoolean(true)
+    s().filter(a => found.get && a.matches(r))
+    .forEach(a => { a.ack; found.set(false)})
+    if (found.get) {
+      logger.error(s"failed to find record ${r}")
+    }
+  }
+
   def enqueue[T](q:util.Queue[Ackker[T]]):T => T = (t:T) => {q.offer(Ackker[T](t));t}
 }
 
