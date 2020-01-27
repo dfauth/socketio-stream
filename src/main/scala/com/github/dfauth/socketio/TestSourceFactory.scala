@@ -3,13 +3,13 @@ package com.github.dfauth.socketio
 import java.time.Instant
 
 import akka.actor.{ActorSystem, Cancellable}
-import akka.kafka.ConsumerMessage.{GroupTopicPartition, PartitionOffset}
+import akka.kafka.ConsumerMessage.{CommittableMessage, GroupTopicPartition, PartitionOffset}
 import akka.kafka.internal.CommittableOffsetImpl
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.kafka.scaladsl.Committer
 import akka.stream.scaladsl.Source
 import com.github.dfauth.socketio.avro.AvroUtils
-import com.github.dfauth.socketio.utils.StreamUtils
+import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue, StreamUtils}
 import com.github.dfauth.socketio.utils.StreamUtils._
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import org.apache.avro.specific.SpecificRecordBase
@@ -55,20 +55,13 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 
   override def create[T >: Ackable with Eventable,U](ctx: UserContext[U]) = {
     val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
-//    val (sink, src) = Processors.sinkToSource[T]
-//    src.map {t => {
-//      val (tPartition, offset) = KafkaContext("groupId", "left", t.ackId)
-//      CommittableOffsetImpl(PartitionOffset(tPartition, offset), metadata = Instant.now().getEpochSecond.toString)
-//    }}.to(Committer.sink(CommitterSettings(system)))
 
-//    Source.single(new Blah(1)).map {t => {
-//      val (tPartition, offset) = KafkaContext("groupId", "left", t.ackId)
-//      CommittableOffsetImpl(PartitionOffset(tPartition, offset), metadata = Instant.now().getEpochSecond.toString)
-//    }}.toMat(Committer.sink(CommitterSettings(system)))
-//    val a = sink
-
+    val ackQ = new FilteringQueue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]](100, a => a.isAcked)
     val brokerList = system.settings.config.getString("bootstrap.servers")
-    val b = StreamService(brokerList, subscription, schemaRegClient).subscribeSource().map((e:KafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.offset))
+    val b = StreamService(brokerList, subscription, schemaRegClient)
+      .subscribeSource()
+      .map(Ackker.enqueue(ackQ))
+      .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
     (a,b)
   }
 }

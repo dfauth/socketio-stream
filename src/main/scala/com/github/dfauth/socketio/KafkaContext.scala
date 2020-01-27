@@ -1,6 +1,6 @@
 package com.github.dfauth.socketio
 
-import akka.kafka.ConsumerMessage.GroupTopicPartition
+import akka.kafka.ConsumerMessage.{CommittableOffset, GroupTopicPartition}
 import org.apache.avro.specific.SpecificRecordBase
 
 object KafkaContext {
@@ -13,4 +13,8 @@ object KafkaContext {
 
 case class KafkaContext[T <: SpecificRecordBase](topic:String, partition:Int, offset:Long, payload:T) {
   def ackId:Long = offset * 100 + partition
+}
+
+case class CommittableKafkaContext[T <: SpecificRecordBase](committableOffset:CommittableOffset, payload:T) {
+  def ackId:Long = committableOffset.partitionOffset.offset * 100 + committableOffset.partitionOffset.key.partition
 }
