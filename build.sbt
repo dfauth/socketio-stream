@@ -39,6 +39,8 @@ val kafkaReg = "io.confluent" % "kafka-schema-registry-client" % "4.1.1"
 val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "4.1.1"
 val jodaTime = "joda-time" % "joda-time" % "2.10.1"
 val reactiveStreams = "org.reactivestreams" % "reactive-streams" % "1.0.3"
+val scalaJava8 = "org.scala-lang.modules" %% "scala-java8-compat" % "0.3.0" % Test
+
 
 val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging, logback)
 
@@ -59,7 +61,9 @@ lazy val root = (project in file("."))
       embeddedKafka,
       jodaTime,
       avro,
-      socketioClient
+      socketioClient,
+      testNG,
+      scalaJava8
     )
   )
   .enablePlugins(AssemblyPlugin)
