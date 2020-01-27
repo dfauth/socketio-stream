@@ -13,6 +13,18 @@ import scala.util.{Failure, Success, Try}
 
 object Processors {
 
+  def mapSink[R, T](f:R => T, sink: Sink[T,NotUsed]):Sink[R, NotUsed] = {
+    val (sink0, src0) = sinkAndSourceOf(FunctionProcessor(f))
+    src0.to(sink)
+    sink0
+  }
+
+  def sourceFromSinkConsumer[T:ClassTag](sinkConsumer: Sink[T,NotUsed] => Unit):Source[T, NotUsed] = {
+    val (sink, src) = sinkToSource[T]
+    sinkConsumer(sink)
+    src
+  }
+
   def sinkToSource[T:ClassTag]:(Sink[T, NotUsed], Source[T, NotUsed]) = sinkAndSourceOf(FunctionProcessor[T]())
 
   def sinkAndSourceOf[I,O](processor:Processor[I,O]) = {

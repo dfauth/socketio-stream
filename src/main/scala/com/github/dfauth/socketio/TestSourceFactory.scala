@@ -1,5 +1,6 @@
 package com.github.dfauth.socketio
 
+import java.util
 import java.util.concurrent.Executors
 
 import akka.{Done, NotUsed}
@@ -7,9 +8,11 @@ import akka.actor.{ActorSystem, Cancellable}
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.kafka.scaladsl.Committer
 import akka.stream.scaladsl.{Sink, Source}
+import com.github.dfauth.reactivestreams.QueueSubscriber
 import com.github.dfauth.socketio.avro.AvroUtils
-import com.github.dfauth.socketio.reactivestreams.{FunctionProcessor, Processors, QueuePublisher}
-import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue, StreamUtils}
+import com.github.dfauth.socketio.reactivestreams.QueuePublisher
+import com.github.dfauth.socketio.reactivestreams.Processors._
+import com.github.dfauth.socketio.utils.{Ackker, BranchingGraph, FilteringQueue, SplittingGraph, StreamUtils}
 import com.github.dfauth.socketio.utils.StreamUtils._
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import org.apache.avro.specific.SpecificRecordBase
@@ -58,13 +61,12 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
   def matcher[T <: Ackable with Eventable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => c.ackId == t.ackId
 
   override def create[U](ctx: UserContext[U]) = {
-//    val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
 
-    val ackQ = new FilteringQueue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]](100, a => a.isAcked)
+    val ackQ:util.Queue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]](100, a => a.isAcked)
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
 
-    val a:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(() => ackQ.asScala, matcher)}
+    val sink:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(() => ackQ.asScala, matcher)}
 
     Source.fromPublisher(QueuePublisher(ackQ))
       .map(_.payload.committableOffset)
@@ -72,10 +74,21 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
       .runWith(Committer.sink(CommitterSettings(system)))
 
     val brokerList = system.settings.config.getString("bootstrap.servers")
-    val b = StreamService(brokerList, subscription, schemaRegClient)
-      .subscribeSource()
-      .map(Ackker.enqueue(ackQ))
-      .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
-    (a,b)
+
+//    val src = StreamService(brokerList, subscription, schemaRegClient)
+//      .subscribeSource()
+//      .map(Ackker.enqueueFn(ackQ))
+//      .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
+
+
+    val src = sourceFromSinkConsumer[CommittableKafkaContext[SpecificRecordBase]](s => {
+      SplittingGraph(
+        StreamService[SpecificRecordBase](brokerList, subscription, schemaRegClient).subscribeSource(),
+        mapSink((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e), Sink.fromSubscriber(new QueueSubscriber(ackQ, 100))),
+        s
+      )
+    })
+    .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
+    (sink,src)
   }
 }

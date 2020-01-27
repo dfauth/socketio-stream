@@ -18,7 +18,9 @@ object Ackker extends LazyLogging {
     }
   }
 
-  def enqueue[T](q:util.Queue[Ackker[T]]):T => T = (t:T) => {q.offer(Ackker[T](t));t}
+  def enqueue[T](q:util.Queue[Ackker[T]]):T => Unit = (t:T) => q.offer(Ackker[T](t))
+
+  def enqueueFn[T](q:util.Queue[Ackker[T]]):T => T = (t:T) => {enqueue(q)(t);t}
 }
 
 case class Ackker[+T](t:T, acked:AtomicBoolean = new AtomicBoolean(false)) {

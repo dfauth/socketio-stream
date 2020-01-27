@@ -18,16 +18,16 @@ import scala.compat.java8.FutureConverters._
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 
 trait StreamService[T<: SpecificRecordBase] {
-  def subscribeSource()(implicit system: ActorSystem): Source[CommittableKafkaContext[T], Consumer.Control]
+  def subscribeSource()(implicit system: ActorSystem): Source[CommittableKafkaContext[T], Any]
   def subscribeSink(): Sink[java.lang.Long, Future[Done]]
   def subscribeFlow()(implicit system: ActorSystem): Flow[java.lang.Long, CommittableKafkaContext[T], NotUsed]
 }
 
 class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSettings[String, Envelope], subscription: Subscription, envelopeHandler: EnvelopeHandler[T]) extends StreamService[T] with LazyLogging {
 
-  def subscribeSource()(implicit system: ActorSystem): Source[CommittableKafkaContext[T], Consumer.Control] = {
+  def subscribeSource()(implicit system: ActorSystem): Source[CommittableKafkaContext[T], Any] = {
     system.log.info(s"starting the subscription.")
-    val source: Source[CommittableKafkaContext[T], Consumer.Control] = Consumer.committableSource(consumerSettings, subscription).
+    val source: Source[CommittableKafkaContext[T], Any] = Consumer.committableSource(consumerSettings, subscription).
       mapAsync[CommittableKafkaContext[T]](1)(committableAsyncUnwrapper(envelopeHandler)(_).toScala)
       .buffer(1024, OverflowStrategy.dropHead)
     source

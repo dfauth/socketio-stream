@@ -75,7 +75,7 @@ class CommitterSpec extends FlatSpec
         val ackQ = new FilteringQueue[Ackker[CommittableMessage[String, Long]]](100, a => a.isAcked)
 
         source
-          .map {Ackker.enqueue(ackQ)}.runWith(Sink.foreach((t:CommittableMessage[String, Long]) => {
+          .map {Ackker.enqueueFn(ackQ)}.runWith(Sink.foreach((t:CommittableMessage[String, Long]) => {
           Future {
             Thread.sleep((Math.random()*1500).toInt)
             q.offer(t)
