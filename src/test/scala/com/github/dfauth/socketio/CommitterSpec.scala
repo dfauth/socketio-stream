@@ -2,9 +2,9 @@ package com.github.dfauth.socketio
 
 import java.util
 import java.util.concurrent._
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong}
+import java.util.concurrent.atomic.{AtomicLong}
 
-import akka.{Done, NotUsed}
+import akka.{NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage.{CommittableMessage, CommittableOffset}
 import akka.kafka.scaladsl.{Committer, Consumer}
@@ -12,7 +12,7 @@ import akka.kafka._
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
 import com.github.dfauth.socketio.kafka.{KafkaSink, OffsetAndMetadata, OffsetKey, OffsetKeyDeserializer, OffsetValueDeserializer}
-import com.github.dfauth.socketio.reactivestreams.{QueuePublisher, Throttlers, ThrottlingSubscriber}
+import com.github.dfauth.socketio.reactivestreams.{QueuePublisher}
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue}
 import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
@@ -23,6 +23,8 @@ import org.apache.kafka.common.serialization.{Deserializer, LongDeserializer, Lo
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
+
+import scala.collection.JavaConverters._
 
 class CommitterSpec extends FlatSpec
   with Matchers
@@ -98,7 +100,7 @@ class CommitterSpec extends FlatSpec
 
         val backSrc:Source[CommittableMessage[String, Long], NotUsed] = Source.fromPublisher(QueuePublisher(q))
 
-        backSrc.runWith( Sink.foreach { Ackker.process(() => ackQ.stream())})
+        backSrc.runWith( Sink.foreach { Ackker.process(() => ackQ.asScala)})
 
         Await.result(system.whenTerminated, secondsOf(20))
       }

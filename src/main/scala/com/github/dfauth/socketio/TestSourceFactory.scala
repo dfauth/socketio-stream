@@ -1,20 +1,22 @@
 package com.github.dfauth.socketio
 
-import java.time.Instant
+import java.util.concurrent.Executors
 
+import akka.{Done, NotUsed}
 import akka.actor.{ActorSystem, Cancellable}
-import akka.kafka.ConsumerMessage.{CommittableMessage, GroupTopicPartition, PartitionOffset}
-import akka.kafka.internal.CommittableOffsetImpl
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.kafka.scaladsl.Committer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.github.dfauth.socketio.avro.AvroUtils
+import com.github.dfauth.socketio.reactivestreams.{FunctionProcessor, Processors, QueuePublisher}
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue, StreamUtils}
 import com.github.dfauth.socketio.utils.StreamUtils._
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import org.apache.avro.specific.SpecificRecordBase
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.collection.JavaConverters._
 
 case class Blah(ackId:Long) extends Ackable with Eventable {
   val eventId:String = "left"
@@ -53,10 +55,22 @@ case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay
 
 case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory {
 
+  def matcher[T <: Ackable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => c.ackId == t.ackId
+
   override def create[T >: Ackable with Eventable,U](ctx: UserContext[U]) = {
     val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
 
     val ackQ = new FilteringQueue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]](100, a => a.isAcked)
+    implicit val ec = Executors.newSingleThreadScheduledExecutor()
+
+
+//    val a:Sink[T, Future[Done]] = Sink.foreach{ Ackker.process(() => ackQ.asScala, matcher)}
+
+    Source.fromPublisher(QueuePublisher(ackQ))
+      .map(_.payload.committableOffset)
+      .map(loggingFn("processing record "))
+      .runWith(Committer.sink(CommitterSettings(system)))
+
     val brokerList = system.settings.config.getString("bootstrap.servers")
     val b = StreamService(brokerList, subscription, schemaRegClient)
       .subscribeSource()
