@@ -9,7 +9,9 @@ object Ackker extends LazyLogging {
 
   def process[T, U](supplier:() => Iterable[Ackker[T]], matcher: (T,U) => Boolean = (t:T,u:U) => t.equals(u)):U => Unit = u => {
     val found = new AtomicBoolean(true)
-    supplier().filter(a => found.get && matcher(a.t,u))
+    supplier().filter(a =>
+      found.get &&
+      matcher(a.t,u))
     .foreach(a => { a.ack; found.set(false)})
     if (found.get) {
       logger.error(s"failed to find record ${u}")

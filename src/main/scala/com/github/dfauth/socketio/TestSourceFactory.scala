@@ -46,8 +46,8 @@ case class TestSourceFactory(namespace:String, f:()=>Ackable with Eventable) ext
 
 case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay:FiniteDuration) extends FlowFactory {
 
-  override def create[T >: Ackable with Eventable, U](ctx: UserContext[U]) = {
-    val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
+  override def create[U](ctx: UserContext[U]) = {
+    val a = StreamUtils.loggingSink[Ackable with Eventable](s"\n\n *** ${namespace} *** \n\n received: ")
     val b = Source.tick(delay, delay, f).map {g => g() }
     (a,b)
   }
@@ -55,16 +55,16 @@ case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay
 
 case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory {
 
-  def matcher[T <: Ackable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => c.ackId == t.ackId
+  def matcher[T <: Ackable with Eventable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => c.ackId == t.ackId
 
-  override def create[T >: Ackable with Eventable,U](ctx: UserContext[U]) = {
-    val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
+  override def create[U](ctx: UserContext[U]) = {
+//    val a = StreamUtils.loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: ")
 
     val ackQ = new FilteringQueue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]](100, a => a.isAcked)
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
 
-//    val a:Sink[T, Future[Done]] = Sink.foreach{ Ackker.process(() => ackQ.asScala, matcher)}
+    val a:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(() => ackQ.asScala, matcher)}
 
     Source.fromPublisher(QueuePublisher(ackQ))
       .map(_.payload.committableOffset)

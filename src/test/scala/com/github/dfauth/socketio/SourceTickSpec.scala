@@ -43,11 +43,11 @@ class SourceTickSpec extends FlatSpec
     val flowFactories:Seq[FlowFactory] = Seq(
       new FlowFactory(){
         override val namespace: String = "/left"
-        override def create[T >: Ackable with Eventable, U](ctx: UserContext[U]): (Sink[T, Any], Source[T, Any]) = (loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
+        override def create[U](ctx: UserContext[U]): (Sink[Ackable with Eventable, Any], Source[Ackable with Eventable, Any]) = (loggingSink[Ackable with Eventable](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
       },
       new FlowFactory(){
         override val namespace: String = "/right"
-        override def create[T >: Ackable with Eventable, U](ctx: UserContext[U]): (Sink[T, Any], Source[T, Any]) = (loggingSink[T](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
+        override def create[U](ctx: UserContext[U]): (Sink[Ackable with Eventable, Any], Source[Ackable with Eventable, Any]) = (loggingSink[Ackable with Eventable](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
       }
     )
 
