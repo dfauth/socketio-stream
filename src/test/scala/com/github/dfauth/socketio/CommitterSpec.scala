@@ -13,6 +13,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
 import com.github.dfauth.socketio.kafka.{KafkaSink, OffsetAndMetadata, OffsetKey, OffsetKeyDeserializer, OffsetValueDeserializer}
 import com.github.dfauth.socketio.reactivestreams.{QueuePublisher, Throttlers, ThrottlingSubscriber}
+import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue}
 import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.{FlatSpec, Matchers}
@@ -65,17 +66,14 @@ class CommitterSpec extends FlatSpec
 
         val source = Consumer.committableSource(consumerSettings, subscription).buffer(1024, OverflowStrategy.dropHead)
         val offsetSource = Consumer.plainSource(offsetConsumerSettings, offsetSubscription).buffer(1024, OverflowStrategy.dropHead)
-        offsetSource.runWith(loggingSink("WOOZ2"))
+        offsetSource.runWith(loggingSink("offset record: "))
 
         val q = new util.ArrayDeque[CommittableMessage[String,Long]](100)
 
-        val ackQ = new CustomQueue[Ackker[CommittableMessage[String, Long], String, Long]](100, a => a.isAcked)
+        val ackQ = new FilteringQueue[Ackker[CommittableMessage[String, Long]]](100, a => a.isAcked)
 
         source
-          .map {r => {
-            ackQ.offer(Ackker(r))
-            r
-          }}.runWith(Sink.foreach((t:CommittableMessage[String, Long]) => {
+          .map {Ackker.enqueue(ackQ)}.runWith(Sink.foreach((t:CommittableMessage[String, Long]) => {
           Future {
             Thread.sleep((Math.random()*1500).toInt)
             q.offer(t)
@@ -85,9 +83,7 @@ class CommitterSpec extends FlatSpec
         implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
         Source.fromPublisher(QueuePublisher(ackQ))
-          .map(a =>
-            a.payload.committableOffset
-          )
+          .map(_.payload.committableOffset)
           .map(loggingFn("processing record "))
           .runWith(Committer.sink(CommitterSettings(system)))
 
@@ -115,26 +111,10 @@ class CommitterSpec extends FlatSpec
           }
         })
 
-//        backSrc.runWith(loggingSink(" WOOZ this is the back channel"))
-
-//        backSrc.runWith(ThrottlingSubscriber.sink(Throttlers.fixed(5, loggingConsumer[KafkaRecord](s"WOOZ this is the back channel"))))
-
         Await.result(system.whenTerminated, secondsOf(20))
       }
     } finally {
       EmbeddedKafka.stop()
     }
   }
-}
-
-case class Ackker[T <: CommittableMessage[K,V], K, V](t:T, acked:AtomicBoolean = new AtomicBoolean(false)) {
-  def ack:Unit = acked.set(true)
-  def isAcked:Boolean = acked.get()
-  def payload:T = t
-  def matches(t1:T): Boolean = t.equals(t1)
-  override def toString: String = s"Ackker(${t.committableOffset.partitionOffset.offset}, ${acked.get()})"
-}
-
-class CustomQueue[T](capacity:Int, f:T=>Boolean) extends util.ArrayDeque[T](capacity) with LazyLogging {
-  override def poll(): T = Option(super.peek()).filter(e => f(e)).map(_ => super.poll()).getOrElse(null).asInstanceOf[T]
 }
