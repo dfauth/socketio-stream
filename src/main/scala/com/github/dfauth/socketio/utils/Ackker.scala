@@ -7,16 +7,13 @@ import com.typesafe.scalalogging.LazyLogging
 
 object Ackker extends LazyLogging {
 
-  def process[T, U](supplier:() => Iterable[Ackker[T]], matcher: (T,U) => Boolean = (t:T,u:U) => t.equals(u)):U => Unit = u => {
-    val found = new AtomicBoolean(true)
-    supplier().filter(a =>
-      found.get &&
-      matcher(a.t,u))
-    .foreach(a => { a.ack; found.set(false)})
-    if (found.get) {
-      logger.error(s"failed to find record ${u}")
-    }
-  }
+  def process[T, U](it:Iterable[Ackker[T]], matcher: (T,U) => Boolean = (t:T,u:U) => t.equals(u)):U => Unit = u => it
+      .filter(a => matcher(a.t,u))
+      .collectFirst {
+        case a => a.ack
+      }.getOrElse{
+        logger.error(s"failed to find record ${u}")
+      }
 
   def enqueue[T](q:util.Queue[Ackker[T]]):T => Unit = (t:T) => q.offer(Ackker[T](t))
 
@@ -24,7 +21,7 @@ object Ackker extends LazyLogging {
 }
 
 case class Ackker[+T](t:T, acked:AtomicBoolean = new AtomicBoolean(false)) {
-  def ack:Unit = acked.set(true)
+  def ack:Boolean = {acked.set(true); true}
   def isAcked:Boolean = acked.get()
   def payload:T = t
 }

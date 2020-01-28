@@ -13,6 +13,7 @@ import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.reactivestreams.{Processors, QueuePublisher}
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue, SplittingGraph, StreamUtils}
 import com.github.dfauth.socketio.utils.StreamUtils._
+import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import org.apache.avro.specific.SpecificRecordBase
 
@@ -56,9 +57,12 @@ case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay
   }
 }
 
-case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory {
+case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory with LazyLogging {
 
-  def matcher[T <: Ackable with Eventable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => c.ackId == t.ackId
+  def matcher[T <: Ackable with Eventable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => {
+    logger.info(s" WOOZ match: ${c.ackId == t.ackId} t: ${t} c: ${c.ackId} groupId: ${c.committableOffset.partitionOffset.key.groupId} partition: ${c.committableOffset.partitionOffset.key.partition} offset: ${c.committableOffset.partitionOffset.offset}")
+    c.ackId == t.ackId
+  }
 
   override def create[U](ctx: UserContext[U]) = {
 
@@ -66,7 +70,7 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
 
-    val sink:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(() => ackQ.asScala, matcher)}
+    val sink:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(ackQ.asScala, matcher)}
 
     Source.fromPublisher(QueuePublisher(ackQ))
       .map(_.payload.committableOffset)

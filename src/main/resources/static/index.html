@@ -90,70 +90,60 @@
             }
           }
 
+        var shouldAcknowledgeLeft = false
+        $('#disconnectLeft').click(function(){
+            socket.close();
+            $('#lowerLeft').text("disconnected");
+        });
+        $('#reconnectLeft').click(function(){
+            initLeft()
+            $('#lowerLeft').text("reconnected");
+        });
+        $('#ackLeft').click(function(v){
+            shouldAcknowledgeLeft = !shouldAcknowledgeLeft
+            $('#lowerLeft').text("left ack is "+shouldAcknowledgeLeft);
+        });
+
+        $('#left').click(function(ack) {
+            callback(JSON.parse($('#left').text()))
+            $('#lowerLeft').text('acked '+JSON.stringify(msg))
+        })
+
         var initLeft = function(){
-            var shouldAcknowledgeLeft = false
+            shouldAcknowledgeLeft = false
 
             const socket = io("/left", {
               transportOptions: tOpts
             });
 
-            $('#disconnectLeft').click(function(){
-                socket.close();
-                $('#lowerLeft').text("disconnected");
-            });
-            $('#reconnectLeft').click(function(){
-                initLeft()
-                $('#lowerLeft').text("reconnected");
-            });
-            $('#ackLeft').click(function(v){
-                shouldAcknowledgeLeft = !shouldAcknowledgeLeft
-                $('#lowerLeft').text("left ack is "+shouldAcknowledgeLeft);
-            });
             socket.on('left', function(msg, callback) {
                 $('#left').text(JSON.stringify(msg))
-                $('#left').click(function(ack) {
-                    callback({ ackId: msg })
-                    $('#lowerLeft').text('acked '+JSON.stringify(msg))
-                })
                 if(shouldAcknowledgeLeft) {
                     callback({ ackId: msg })
                     $('#lowerLeft').text('left acked '+JSON.stringify(msg))
                 }
             });
         }
-        var initRight = function(){
-            var shouldAcknowledgeRight = false
 
-            const socket = io("/right", {
-              transportOptions: tOpts
-            });
+        var shouldAcknowledgeRight = false
 
-            $('#disconnectRight').click(function(){
-                socket.close();
-                $('#lowerRight').text("disconnected");
-            });
-            $('#reconnectRight').click(function(){
-                initRight()
-                $('#lowerRight').text("reconnected");
-            });
-            $('#ackRight').click(function(v){
-                shouldAcknowledgeRight = !shouldAcknowledgeRight
-                $('#lowerRight').text("right ack is "+shouldAcknowledgeRight);
-            });
-            socket.on('right', function(msg, callback) {
-                $('#right').text(JSON.stringify(msg))
-                $('#right').click(function(ack) {
-                    callback({ ackId: msg })
-                    $('#lowerRight').text('right acked '+JSON.stringify(msg))
-                })
-                if(shouldAcknowledgeRight) {
-                    callback({ ackId: msg })
-                    $('#lowerRight').text('right acked '+JSON.stringify(msg))
-                }
-            });
-        }
-        initLeft()
-        initRight()
+        $('#disconnectRight').click(function(){
+            socket.close();
+            $('#lowerRight').text("disconnected");
+        });
+        $('#reconnectRight').click(function(){
+            initRight()
+            $('#lowerRight').text("reconnected");
+        });
+        $('#ackRight').click(function(v){
+            shouldAcknowledgeRight = !shouldAcknowledgeRight
+            $('#lowerRight').text("right ack is "+shouldAcknowledgeRight);
+        });
+        $('#right').click(function(ack) {
+            callback({ ackId: msg })
+            $('#lowerRight').text('right acked '+JSON.stringify(msg))
+        })
+
         $('#reset').click(function(){
             $('#left').text("left");
             $('#right').text("right");
@@ -163,6 +153,24 @@
             shouldAcknowledgeLeft = false
             shouldAcknowledgeRight = false
         });
+
+        var initRight = function(){
+            shouldAcknowledgeRight = false
+
+            const socket = io("/right", {
+              transportOptions: tOpts
+            });
+
+            socket.on('right', function(msg, callback) {
+                $('#right').text(JSON.stringify(msg))
+                if(shouldAcknowledgeRight) {
+                    callback({ ackId: msg })
+                    $('#lowerRight').text('right acked '+JSON.stringify(msg))
+                }
+            });
+        }
+        initLeft()
+        initRight()
 
     });
 </script>

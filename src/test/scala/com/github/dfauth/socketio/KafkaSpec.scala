@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.server.Directives.{getFromResource, getFromResourceDirectory, path, pathPrefix, _}
 import akka.http.scaladsl.server.Route
 import akka.kafka.Subscriptions
-import akka.kafka.Subscriptions.TopicSubscription
 import akka.stream.scaladsl.Flow
 import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator

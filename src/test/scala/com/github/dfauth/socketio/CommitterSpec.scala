@@ -100,7 +100,7 @@ class CommitterSpec extends FlatSpec
 
         val backSrc:Source[CommittableMessage[String, Long], NotUsed] = Source.fromPublisher(QueuePublisher(q))
 
-        backSrc.runWith( Sink.foreach { Ackker.process(() => ackQ.asScala)})
+        backSrc.runWith( Sink.foreach { Ackker.process(ackQ.asScala)})
 
         Await.result(system.whenTerminated, secondsOf(20))
       }
