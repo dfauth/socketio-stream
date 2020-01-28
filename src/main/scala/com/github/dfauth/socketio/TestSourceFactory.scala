@@ -2,13 +2,14 @@ package com.github.dfauth.socketio
 
 import java.util
 import java.util.concurrent.Executors
+import java.util.function
 
 import akka.Done
 import akka.actor.{ActorSystem, Cancellable}
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.kafka.scaladsl.Committer
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.github.dfauth.reactivestreams.QueueSubscriber
+import com.github.dfauth.reactivestreams.{QueueProcessor, QueueSubscriber}
 import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.reactivestreams.{Processors, QueuePublisher}
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue, SplittingGraph, StreamUtils}
@@ -16,10 +17,11 @@ import com.github.dfauth.socketio.utils.StreamUtils._
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import org.apache.avro.specific.SpecificRecordBase
+import org.reactivestreams.Processor
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.compat.java8.FunctionConverters._
 import scala.collection.JavaConverters._
 
 case class Blah(ackId:Long) extends Ackable with Eventable {
@@ -64,9 +66,13 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
     c.ackId == t.ackId
   }
 
+  def unwrapper[T]: Ackker[T] => T = a => a.payload
+
+  val javaUnWrapper: function.Function[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]] = unwrapper[CommittableKafkaContext[SpecificRecordBase]].asJava
+
   override def create[U](ctx: UserContext[U]) = {
 
-    val ackQ:util.Queue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[_ <: SpecificRecordBase]]](100, a => a.isAcked)
+    val ackQ:util.Queue[Ackker[CommittableKafkaContext[SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[SpecificRecordBase]]](100, a => a.isAcked)
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
 
@@ -79,30 +85,16 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 
     val brokerList = system.settings.config.getString("bootstrap.servers")
 
-        val in:Source[CommittableKafkaContext[SpecificRecordBase], Any] = StreamService(brokerList, subscription, schemaRegClient).subscribeSource()
-//        val src = in
-//          .map(Ackker.enqueueFn(ackQ))
-//          .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
+    val in:Source[CommittableKafkaContext[SpecificRecordBase], Any] = StreamService(brokerList, subscription, schemaRegClient).subscribeSource()
 
-//    val in = StreamService[SpecificRecordBase](brokerList, subscription, schemaRegClient).subscribeSource().map(loggingFn("WOOZ0"))
+    val qProcessor:Processor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]] =
+      new QueueProcessor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]](ackQ, 100, javaUnWrapper)
 
-//    val (src0, src1) = SplittingGraph(in)
+    val src = in.map(loggingFn("WOOZ0"))
+      .via(Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)).map(loggingFn("WOOZ1"))
+      .via(Flow.fromProcessor(() => qProcessor).map(loggingFn("WOOZ2"))
+      .via(Flow.fromFunction((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId)).map(loggingFn("WOOZ3")))))
 
-    val sink0:Sink[CommittableKafkaContext[SpecificRecordBase], Any] = Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e))
-    .to(Sink.fromSubscriber(new QueueSubscriber(ackQ, 100)))
-
-    val (sink1, src1) = Processors.sinkToSource[CommittableKafkaContext[SpecificRecordBase]]
-    SplittingGraph(in, sink0, sink1).run()
-    val src = src1.map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
-
-    //    val src:Source[Ackable with Eventable, Any] = SplittingGraph.split(in).to(sink0).withSource.map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
-
-//    src0.map(loggingFn("WOOZ1"))
-//      .to(Flow.fromFunction(
-//        (e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e))
-//      .to(Sink.fromSubscriber(new QueueSubscriber(ackQ, 100))))
-//
-//    val src = src1.map(loggingFn("WOOZ2")).map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
     (sink,src)
   }
 }

@@ -1,5 +1,6 @@
 package com.github.dfauth.reactivestreams;
 
+import org.reactivestreams.Processor;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -10,38 +11,40 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
-public class QueuePublisher<T> implements Publisher<T>, Subscription {
+public class QueueProcessor<I,O> extends QueueSubscriber<I> implements Publisher<O>, Subscriber<I>, Processor<I,O>, Subscription {
 
-    private static final Logger logger = LoggerFactory.getLogger(QueuePublisher.class);
+    private static final Logger logger = LoggerFactory.getLogger(QueueProcessor.class);
 
+    private final Function<I, O> f;
+    private Optional<Subscriber<? super O>> subscriberOptional = Optional.empty();
     private final Duration delay;
-    private final Queue<T> queue;
     private final ScheduledExecutorService executor;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private TerminatingCondition terminatingCondition = new TerminatingCondition.DefaultTerminatingCondition(running);
-    private Optional<Subscriber> subscriberOptional = Optional.empty();
 
-    public QueuePublisher(Queue<T> queue, ScheduledExecutorService executor) {
-        this(queue, executor, Duration.of(100, ChronoUnit.MILLIS));
+    public QueueProcessor(Queue<I> queue, int capacity, Function<I,O> f) {
+        this(queue, capacity, f, Executors.newSingleThreadScheduledExecutor(), Duration.of(100, ChronoUnit.MILLIS));
     }
 
-    public QueuePublisher(Queue<T> queue, ScheduledExecutorService executor, Duration delay) {
-        this.queue = queue;
+    public QueueProcessor(Queue<I> queue, int capacity, Function<I,O> f, ScheduledExecutorService executor, Duration delay) {
+        super(queue, capacity);
+        this.f = f;
         this.executor = executor;
         this.delay = delay;
     }
 
     @Override
-    public void subscribe(Subscriber<? super T> s) {
+    public void subscribe(Subscriber<? super O> s) {
         subscriberOptional = Optional.of(s);
         s.onSubscribe(this);
     }
 
-    @Override
     public void request(long n) {
         executor.execute(() -> _request(n));
     }
@@ -63,9 +66,9 @@ public class QueuePublisher<T> implements Publisher<T>, Subscription {
     }
 
     private boolean dequeueOne() {
-        T t = queue.poll();
-        if(t != null) {
-            subscriberOptional.ifPresent(s ->s.onNext(t));
+        I i = queue.poll();
+        if(i != null) {
+            subscriberOptional.ifPresent(s ->s.onNext(f.apply(i)));
             return true;
         }
         return false;
@@ -75,14 +78,4 @@ public class QueuePublisher<T> implements Publisher<T>, Subscription {
     public void cancel() {
         running.set(false);
     }
-
-    public void stop() {
-        cancel();
-    }
-
-    public void stopWhenEmpty() {
-        terminatingCondition = new TerminatingCondition.WhenEmptyTerminatingCondition<>(running, queue);
-        cancel();
-    }
-
 }

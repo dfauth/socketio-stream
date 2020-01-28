@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class QueueSubscriber<T> implements Subscriber<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(QueueSubscriber.class);
-    private final Queue<T> queue;
+    protected final Queue<T> queue;
     private final int capacity;
     private final AtomicLong cnt = new AtomicLong();
     private Optional<Subscription> subscriptionOptional = Optional.empty();
