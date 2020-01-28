@@ -3,22 +3,22 @@ package com.github.dfauth.socketio
 import java.util
 import java.util.concurrent.Executors
 
-import akka.{Done, NotUsed}
+import akka.Done
 import akka.actor.{ActorSystem, Cancellable}
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.kafka.scaladsl.Committer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.github.dfauth.reactivestreams.QueueSubscriber
 import com.github.dfauth.socketio.avro.AvroUtils
-import com.github.dfauth.socketio.reactivestreams.QueuePublisher
-import com.github.dfauth.socketio.reactivestreams.Processors._
-import com.github.dfauth.socketio.utils.{Ackker, BranchingGraph, FilteringQueue, SplittingGraph, StreamUtils}
+import com.github.dfauth.socketio.reactivestreams.{Processors, QueuePublisher}
+import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue, SplittingGraph, StreamUtils}
 import com.github.dfauth.socketio.utils.StreamUtils._
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import org.apache.avro.specific.SpecificRecordBase
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.JavaConverters._
 
 case class Blah(ackId:Long) extends Ackable with Eventable {
@@ -75,24 +75,30 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 
     val brokerList = system.settings.config.getString("bootstrap.servers")
 
-//    val src = StreamService(brokerList, subscription, schemaRegClient)
-//      .subscribeSource()
-//      .map(Ackker.enqueueFn(ackQ))
-//      .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
+        val in:Source[CommittableKafkaContext[SpecificRecordBase], Any] = StreamService(brokerList, subscription, schemaRegClient).subscribeSource()
+//        val src = in
+//          .map(Ackker.enqueueFn(ackQ))
+//          .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
 
-    val src = sourceFromSinkConsumer[CommittableKafkaContext[SpecificRecordBase]](s => {
-      SplittingGraph(
-        StreamService[SpecificRecordBase](brokerList, subscription, schemaRegClient).subscribeSource(),
-        Flow.fromFunction(
-          (e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)
-        )
-        .to(Sink.fromSubscriber(
-          new QueueSubscriber(ackQ, 100)
-        )),
-        s
-      )
-    })
-    .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
+//    val in = StreamService[SpecificRecordBase](brokerList, subscription, schemaRegClient).subscribeSource().map(loggingFn("WOOZ0"))
+
+//    val (src0, src1) = SplittingGraph(in)
+
+    val sink0:Sink[CommittableKafkaContext[SpecificRecordBase], Any] = Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e))
+    .to(Sink.fromSubscriber(new QueueSubscriber(ackQ, 100)))
+
+    val (sink1, src1) = Processors.sinkToSource[CommittableKafkaContext[SpecificRecordBase]]
+    SplittingGraph(in, sink0, sink1).run()
+    val src = src1.map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
+
+    //    val src:Source[Ackable with Eventable, Any] = SplittingGraph.split(in).to(sink0).withSource.map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
+
+//    src0.map(loggingFn("WOOZ1"))
+//      .to(Flow.fromFunction(
+//        (e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e))
+//      .to(Sink.fromSubscriber(new QueueSubscriber(ackQ, 100))))
+//
+//    val src = src1.map(loggingFn("WOOZ2")).map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
     (sink,src)
   }
 }

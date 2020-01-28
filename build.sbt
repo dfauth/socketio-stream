@@ -11,6 +11,7 @@ val springVersion = "5.1.8.RELEASE"
 
 val scalactic = "org.scalactic" %% "scalactic" % "3.0.5"
 val scalatest = "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+val akkaActor = "com.typesafe.akka" %% "akka-actor"   % akkaVersion withSources()
 val akkaHttp = "com.typesafe.akka" %% "akka-http"   % akkaHttpVersion
 val akkaStream = "com.typesafe.akka" %% "akka-stream" % akkaVersion
 val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
@@ -48,6 +49,7 @@ val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging,
 lazy val root = (project in file("."))
   .settings(
     libraryDependencies ++= commonScalaDeps ++ Seq(
+      akkaActor,
       akkaHttp,
       akkaStreamTyped,
       reactiveStreams,
