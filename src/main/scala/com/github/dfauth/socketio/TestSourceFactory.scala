@@ -7,7 +7,7 @@ import akka.{Done, NotUsed}
 import akka.actor.{ActorSystem, Cancellable}
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.kafka.scaladsl.Committer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.github.dfauth.reactivestreams.QueueSubscriber
 import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.reactivestreams.QueuePublisher
@@ -80,11 +80,15 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 //      .map(Ackker.enqueueFn(ackQ))
 //      .map((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId))
 
-
     val src = sourceFromSinkConsumer[CommittableKafkaContext[SpecificRecordBase]](s => {
       SplittingGraph(
         StreamService[SpecificRecordBase](brokerList, subscription, schemaRegClient).subscribeSource(),
-        mapSink((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e), Sink.fromSubscriber(new QueueSubscriber(ackQ, 100))),
+        Flow.fromFunction(
+          (e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)
+        )
+        .to(Sink.fromSubscriber(
+          new QueueSubscriber(ackQ, 100)
+        )),
         s
       )
     })
