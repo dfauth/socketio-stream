@@ -27,7 +27,7 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
   val (sink, source) = sinkToSource[Command]
   val streamSink:Sink[Command, NotUsed] = MergeHub.source[Command](16).to(sink).run()
   val streamFlow:Flow[Command, Command, NotUsed] = Flow.fromSinkAndSource(streamSink, streamSource)
-  streamSource.filter(_.namespace == "").map(loggingFn("WOOZ")).runWith(ActorSink.actorRef(ctx.self,
+  streamSource.filter(_.namespace == "").runWith(ActorSink.actorRef(ctx.self,
     EndSession(userCtx.token),
     t => ErrorMessage(userCtx.token, t)
   ))
@@ -42,12 +42,10 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
     }
   }
 
-  def initializeSources() = {
-    flowFactories.foreach { f =>
-      val (sink, source) = f.create(userCtx)
-      source.map(outbound(f.namespace)).runWith(streamSink)
-      streamSource.filter(_.namespace == f.namespace).map(inbound).runWith(sink)
-    }
+  flowFactories.foreach { f =>
+    val (sink, source) = f.create(userCtx)
+    source.map(outbound(f.namespace)).runWith(streamSink)
+    streamSource.filter(_.namespace == f.namespace).map(inbound).runWith(sink)
   }
 
   override def onMessage(msg: Command): Behavior[Command] = {
@@ -58,7 +56,6 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
       }
       case FetchSessionCommand(id, replyTo) => {
         replyTo ! FetchSessionReply(id, flowFactories.map {_.namespace}, ctx.self, sink0, source)
-        initializeSources()
         Behaviors.same
       }
       case EventCommand(id, namespace, payload) => {

@@ -13,4 +13,6 @@ case class SocketIOConfig(config: Config) {
   val pingTimeout = config.getTemporal("engineio.ping-timeout")
   val longPollTimeout = config.getTemporal("engineio.long-poll-timeout")
   val namespaces = config.getStringList("engineio.namespaces").asScala
+
+  def getContextConfig(ctx:String):Config = config.getConfig(ctx)
 }

@@ -1,5 +1,6 @@
 package com.github.dfauth.socketio
 
+import java.time.temporal.ChronoUnit
 import java.util
 import java.util.concurrent.Executors
 import java.util.function
@@ -9,7 +10,7 @@ import akka.actor.{ActorSystem, Cancellable}
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.kafka.scaladsl.Committer
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.github.dfauth.reactivestreams.{QueueProcessor, QueueSubscriber}
+import com.github.dfauth.reactivestreams.{CompositeProcessor, QueueProcessor, QueueSubscriber}
 import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.reactivestreams.{Processors, QueuePublisher}
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue, SplittingGraph, StreamUtils}
@@ -23,6 +24,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.compat.java8.FunctionConverters._
 import scala.collection.JavaConverters._
+import scala.util.matching.Regex
 
 case class Blah(ackId:Long) extends Ackable with Eventable {
   val eventId:String = "left"
@@ -62,7 +64,7 @@ case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay
 case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory with LazyLogging {
 
   def matcher[T <: Ackable with Eventable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => {
-    logger.info(s" WOOZ match: ${c.ackId == t.ackId} t: ${t} c: ${c.ackId} groupId: ${c.committableOffset.partitionOffset.key.groupId} partition: ${c.committableOffset.partitionOffset.key.partition} offset: ${c.committableOffset.partitionOffset.offset}")
+    logger.info(s"matcher match: ${c.ackId == t.ackId} t: ${t} c: ${c.ackId} groupId: ${c.committableOffset.partitionOffset.key.groupId} partition: ${c.committableOffset.partitionOffset.key.partition} offset: ${c.committableOffset.partitionOffset.offset}")
     c.ackId == t.ackId
   }
 
@@ -70,15 +72,19 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 
   val javaUnWrapper: function.Function[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]] = unwrapper[CommittableKafkaContext[SpecificRecordBase]].asJava
 
+  val tidied = "[A-Za-z0-9]+".r.findFirstIn(namespace).getOrElse("")
+
   override def create[U](ctx: UserContext[U]) = {
 
-    val ackQ:util.Queue[Ackker[CommittableKafkaContext[SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[SpecificRecordBase]]](100, a => a.isAcked)
+    val ackQ:util.Queue[Ackker[CommittableKafkaContext[SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[SpecificRecordBase]]](100, a =>
+      !ctx.config.getBoolean(s"kafka.topics.${tidied}.acknowledge") || a.isAcked)
+
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
 
     val sink:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(ackQ.asScala, matcher)}
 
-    Source.fromPublisher(QueuePublisher(ackQ))
+    Source.fromPublisher(QueuePublisher(ackQ, java.time.Duration.of(1000, ChronoUnit.MILLIS)))
       .map(_.payload.committableOffset)
       .map(loggingFn("processing record "))
       .runWith(Committer.sink(CommitterSettings(system)))
@@ -88,12 +94,12 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
     val in:Source[CommittableKafkaContext[SpecificRecordBase], Any] = StreamService(brokerList, subscription, schemaRegClient).subscribeSource()
 
     val qProcessor:Processor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]] =
-      new QueueProcessor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]](ackQ, 100, javaUnWrapper)
+      new CompositeProcessor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]](new QueueSubscriber[Ackker[CommittableKafkaContext[SpecificRecordBase]]](ackQ, 100), javaUnWrapper)
 
-    val src = in.map(loggingFn("WOOZ0"))
-      .via(Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)).map(loggingFn("WOOZ1"))
-      .via(Flow.fromProcessor(() => qProcessor).map(loggingFn("WOOZ2"))
-      .via(Flow.fromFunction((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId)).map(loggingFn("WOOZ3")))))
+    val src = in
+      .via(Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)))
+      .via(Flow.fromProcessor(() => qProcessor))
+      .via(Flow.fromFunction((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId)))
 
     (sink,src)
   }

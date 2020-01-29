@@ -27,5 +27,13 @@ case class Ackker[+T](t:T, acked:AtomicBoolean = new AtomicBoolean(false)) {
 }
 
 class FilteringQueue[T](capacity:Int, f:T=>Boolean) extends util.ArrayDeque[T](capacity) with LazyLogging {
-  override def poll(): T = Option(super.peek()).filter(e => f(e)).map(_ => super.poll()).getOrElse(null).asInstanceOf[T]
+  override def poll(): T = {
+    Option(peek())
+      .filter(e => f(e))
+      .map(_ => {
+      val t:T = super.poll()
+      logger.info(s"WOOZ1 dequeued; ${t}")
+      t
+    }).getOrElse(null).asInstanceOf[T]
+  }
 }

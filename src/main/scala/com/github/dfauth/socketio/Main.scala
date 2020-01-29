@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.utils.StreamUtils._
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.Await
@@ -44,7 +45,9 @@ object Main extends App with LazyLogging {
 }
 
 case class User(name:String, roles:Seq[String] = Seq.empty)
-case class UserContextImpl(token:String, payload:User) extends UserContext[User]
+case class UserContextImpl(token:String, payload:User) extends UserContext[User] {
+  override val config: Config = SocketIOConfig(ConfigFactory.load()).getContextConfig(s"prefs.${payload.name}")
+}
 
 
 

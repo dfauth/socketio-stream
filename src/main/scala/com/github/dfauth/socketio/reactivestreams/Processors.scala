@@ -76,7 +76,7 @@ class FunctionProcessor[I, O](val f:I => O, override val name:Option[String] = N
         val o = f(i)
         logger.info(withName(s"onNext: ${i} => ${o}"))
         s.onNext(o)
-      }()
+      }
     })
   }
 }
@@ -89,7 +89,7 @@ class OptionFunctionProcessor[I, O](val f:I => Option[O], override val name:Opti
           logger.info(withName(s"onNext: ${i} => ${o}"))
           s.onNext(o)
         }
-      }()
+      }
     })
   }
 }
@@ -101,7 +101,7 @@ class FilteringProcessor[I](val f:I => Boolean, override val name:Option[String]
         if(f(i)) {
           s.onNext(i)
         }
-      }()
+      }
     })
   }
 }
@@ -125,7 +125,7 @@ class TryFunctionProcessor[I, O](val f:I => Try[O], override val name:Option[Str
             s.onError(t)
           }
         }
-      } ()
+      }
     })
   }
 }
@@ -144,7 +144,7 @@ class PartialFunctionProcessor[I, O](val f:PartialFunction[I, O], override val n
           logger.info(withName(s"onNext: ${i} => ${o}"))
           s.onNext(o)
         }
-      }()
+      }
     })
   }
 }

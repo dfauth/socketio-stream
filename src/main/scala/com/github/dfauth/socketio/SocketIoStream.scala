@@ -19,7 +19,7 @@ import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.protocol._
 import com.github.dfauth.socketio.reactivestreams.{FunctionProcessor, PartialFunctionProcessor, TryFunctionProcessor}
 import com.github.dfauth.socketio.utils.{DelayedClosePublisher, MergingGraph, ShortCircuit}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.reactivestreams.Processor
 
@@ -166,6 +166,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], 
 trait UserContext[U] {
   val token:String
   val payload:U
+  val config:Config
 }
 object SocketIoStream {
   type TokenValidator[U] = String => Try[UserContext[U]]

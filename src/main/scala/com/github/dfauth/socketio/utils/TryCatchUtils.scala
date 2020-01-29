@@ -4,7 +4,9 @@ import com.typesafe.scalalogging.LazyLogging
 
 object TryCatchUtils extends LazyLogging {
 
-  def tryCatch[U](codeBlock: => U)(exceptionHandler:Throwable => U = (t:Throwable) => throw t): U = {
+  def tryCatch[U](codeBlock: => U): U = tryCatch(codeBlock, (t:Throwable) => throw t)
+
+  def tryCatch[U](codeBlock: => U, exceptionHandler:Throwable => U): U = {
     try {
       codeBlock
     } catch {

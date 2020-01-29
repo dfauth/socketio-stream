@@ -63,10 +63,15 @@ public class QueuePublisher<T> implements Publisher<T>, Subscription {
     }
 
     private boolean dequeueOne() {
-        T t = queue.poll();
-        if(t != null) {
-            subscriberOptional.ifPresent(s ->s.onNext(t));
-            return true;
+        try {
+            T t = queue.poll();
+            if(t != null) {
+                subscriberOptional.ifPresent(s ->s.onNext(t));
+                return true;
+            }
+        } catch(RuntimeException e) {
+            logger.error(e.getMessage(), e);
+            subscriberOptional.ifPresent(s ->s.onError(e));
         }
         return false;
     }

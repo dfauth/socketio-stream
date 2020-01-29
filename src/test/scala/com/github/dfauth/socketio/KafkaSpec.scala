@@ -17,6 +17,7 @@ import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.{FlatSpec, Matchers}
 import com.github.dfauth.socketio.utils.StreamUtils._
+import com.typesafe.config.{Config, ConfigFactory}
 import io.confluent.kafka.schemaregistry.client.{MockSchemaRegistryClient, SchemaRegistryClient}
 import org.joda.time.DateTime
 
@@ -151,8 +152,8 @@ object SocketIOServer {
     val topic0 = Subscriptions.topics(Set("left"))
     val topic1 = Subscriptions.topics(Set("right"))
     val flowFactories:Seq[FlowFactory] = Seq(
-      new KafkaFlowFactory("/left", "left", topic0, schemaRegClient),
-      new KafkaFlowFactory("/right", "right", topic1, schemaRegClient)
+      new KafkaFlowFactory("/left", "left", topic0, schemaRegClient)
+//      new KafkaFlowFactory("/right", "right", topic1, schemaRegClient)
     )
 
     new ServiceLifecycleImpl(system, materializer) {
@@ -174,4 +175,6 @@ object SocketIOServer {
 }
 
 case class User(name:String, roles:Seq[String] = Seq.empty)
-case class UserContextImpl(token:String, payload:User) extends UserContext[User]
+case class UserContextImpl(token:String, payload:User) extends UserContext[User] {
+  override val config: Config = SocketIOConfig(ConfigFactory.load()).getContextConfig(s"prefs.${payload.name}")
+}
