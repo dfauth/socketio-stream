@@ -152,8 +152,8 @@ object SocketIOServer {
     val topic0 = Subscriptions.topics(Set("left"))
     val topic1 = Subscriptions.topics(Set("right"))
     val flowFactories:Seq[FlowFactory] = Seq(
-      new KafkaFlowFactory("/left", "left", topic0, schemaRegClient)
-//      new KafkaFlowFactory("/right", "right", topic1, schemaRegClient)
+      new KafkaFlowFactory("/left", "left", topic0, schemaRegClient),
+      new KafkaFlowFactory("/right", "right", topic1, schemaRegClient)
     )
 
     new ServiceLifecycleImpl(system, materializer) {
