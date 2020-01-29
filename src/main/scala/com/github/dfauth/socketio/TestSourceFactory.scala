@@ -76,7 +76,9 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 
   override def create[U](ctx: UserContext[U]) = {
 
-    val ackQ:util.Queue[Ackker[CommittableKafkaContext[SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[SpecificRecordBase]]](100, a =>
+    val bufferSize = ctx.config.getInt("kafka.acknowledgment.buffer.size")
+
+    val ackQ:util.Queue[Ackker[CommittableKafkaContext[SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[SpecificRecordBase]]](bufferSize, a =>
       !ctx.config.getBoolean(s"kafka.topics.${tidied}.acknowledge") || a.isAcked)
 
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
@@ -84,17 +86,17 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 
     val sink:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(ackQ.asScala, matcher)}
 
-    Source.fromPublisher(QueuePublisher(ackQ, java.time.Duration.of(1000, ChronoUnit.MILLIS)))
+    Source.fromPublisher(QueuePublisher(ackQ))
       .map(_.payload.committableOffset)
       .map(loggingFn("processing record "))
       .runWith(Committer.sink(CommitterSettings(system)))
 
     val brokerList = system.settings.config.getString("bootstrap.servers")
 
-    val in:Source[CommittableKafkaContext[SpecificRecordBase], Any] = StreamService(brokerList, subscription, schemaRegClient).subscribeSource()
+    val in:Source[CommittableKafkaContext[SpecificRecordBase], Any] = StreamService(ctx, brokerList, subscription, schemaRegClient).subscribeSource()
 
     val qProcessor:Processor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]] =
-      new CompositeProcessor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]](new QueueSubscriber[Ackker[CommittableKafkaContext[SpecificRecordBase]]](ackQ, 100), javaUnWrapper)
+      new CompositeProcessor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]](new QueueSubscriber[Ackker[CommittableKafkaContext[SpecificRecordBase]]](ackQ, bufferSize), javaUnWrapper)
 
     val src = in
       .via(Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)))

@@ -25,7 +25,7 @@ public class QueueSubscriber<T> implements Subscriber<T> {
     @Override
     public void onSubscribe(Subscription s) {
         subscriptionOptional = Optional.of(s);
-        s.request(freespace());
+        freespace().ifPresent((l -> s.request(l)));
     }
 
     @Override
@@ -44,18 +44,19 @@ public class QueueSubscriber<T> implements Subscriber<T> {
         logger.info("completed");
     }
 
-    private long freespace() {
-        cnt.set(capacity - queue.size());
-        return cnt.get();
+    private Optional<Long> freespace() {
+        if(capacity - queue.size() > 0) {
+            cnt.set(capacity - queue.size());
+            return Optional.of(cnt.get());
+        } else {
+            return Optional.empty();
+        }
     }
 
     private void decrement() {
         if(cnt.decrementAndGet() <= 0) {
             subscriptionOptional.ifPresent(s -> {
-                long f = freespace();
-                if (f >= 0) {
-                    s.request(f);
-                }
+                freespace().ifPresent(l -> s.request(l));
             });
         }
     }

@@ -53,7 +53,7 @@ class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSetti
 }
 
 object StreamService {
-  def apply[T <: SpecificRecordBase](brokerList: String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system: ActorSystem):StreamService[T] = {
+  def apply[T <: SpecificRecordBase, U](userCtx:UserContext[U], brokerList: String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system: ActorSystem):StreamService[T] = {
 
     val schemaRegUrl = system.settings.config.getString("schemaRegUrl")
     val deserializer:SpecificRecordDeserializer[Envelope] = SpecificRecordDeserializer.Builder
@@ -64,17 +64,18 @@ object StreamService {
 
     val serializer:SpecificRecordSerializer[T] = SpecificRecordSerializer.Builder
       .builder()
+      .withSchemaRegistryClient(schemaRegClient)
       .withSchemaRegistryURL(schemaRegUrl)
       .build()
 
     val stringDeserializer: Deserializer[String] = new StringDeserializer
     val envelopeHandler = new EnvelopeHandler[T](serializer, deserializer.asInstanceOf[SpecificRecordDeserializer[T]])
 
-    def consumerSettings: ConsumerSettings[String, Envelope] = ConsumerSettings(system, stringDeserializer, deserializer)
+    def consumerSettings(groupId:String): ConsumerSettings[String, Envelope] = ConsumerSettings(system, stringDeserializer, deserializer)
       .withBootstrapServers(brokerList)
-      .withGroupId("akka_streams_group")
-      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+      .withGroupId(groupId)
+      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, system.settings.config.getString("kafka.consumer.auto.offset.reset"))
 
-    new StreamServiceImpl[T](consumerSettings, subscription, envelopeHandler)
+    new StreamServiceImpl[T](consumerSettings(userCtx.userId), subscription, envelopeHandler)
   }
 }

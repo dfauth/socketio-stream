@@ -165,6 +165,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], 
 }
 trait UserContext[U] {
   val token:String
+  def userId:String
   val payload:U
   val config:Config
 }

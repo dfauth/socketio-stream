@@ -32,7 +32,7 @@ class FilteringQueue[T](capacity:Int, f:T=>Boolean) extends util.ArrayDeque[T](c
       .filter(e => f(e))
       .map(_ => {
       val t:T = super.poll()
-      logger.info(s"WOOZ1 dequeued; ${t}")
+      logger.debug(s"dequeued; ${t}")
       t
     }).getOrElse(null).asInstanceOf[T]
   }

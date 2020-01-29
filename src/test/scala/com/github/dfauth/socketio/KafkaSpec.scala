@@ -177,4 +177,5 @@ object SocketIOServer {
 case class User(name:String, roles:Seq[String] = Seq.empty)
 case class UserContextImpl(token:String, payload:User) extends UserContext[User] {
   override val config: Config = SocketIOConfig(ConfigFactory.load()).getContextConfig(s"prefs.${payload.name}")
+  override def userId: String = payload.name
 }
