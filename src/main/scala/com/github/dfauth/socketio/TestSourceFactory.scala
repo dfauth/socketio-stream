@@ -26,36 +26,36 @@ import scala.compat.java8.FunctionConverters._
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 
-case class Blah(ackId:Long) extends Ackable with Eventable {
+case class Blah(ackId:Long) extends Eventable {
   val eventId:String = "left"
   override def toString: String = ackId.toString
 }
-case class BlahChar(c:Char, ackId:Long) extends Ackable with Eventable {
+case class BlahChar(c:Char, ackId:Long) extends Eventable {
   val eventId:String = "right"
   override def toString: String = s""""${c.toString}""""
 }
 
-case class BlahString(msg:String, ackId:Long) extends Ackable with Eventable {
+case class BlahString(msg:String, ackId:Long) extends Eventable with Ackable {
   val eventId:String = "ack"
   override def toString: String = s""""${msg} ack id: ${ackId}""""
 }
 
-case class BlahObject[T <: SpecificRecordBase](t:T, eventId:String, ackId:Long) extends Ackable with Eventable {
+case class BlahObject[T <: SpecificRecordBase](t:T, eventId:String, ackId:Long) extends Eventable {
   override def toString: String = new String(AvroUtils.toByteArray(t.getSchema, t))
 }
 
-case class TestSourceFactory(namespace:String, f:()=>Ackable with Eventable) extends SourceFactory {
+case class TestSourceFactory(namespace:String, f:()=>Eventable) extends SourceFactory {
 
-  override def create[T >: Ackable with Eventable]: Source[T, Cancellable] = {
+  override def create[T >: Eventable]: Source[T, Cancellable] = {
 
     Source.tick(ONE_SECOND, ONE_SECOND, f).map {g => g() }
   }
 }
 
-case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay:FiniteDuration) extends FlowFactory {
+case class TestFlowFactory(namespace:String, f:()=>Eventable, delay:FiniteDuration) extends FlowFactory {
 
   override def create[U](ctx: UserContext[U]) = {
-    val a = StreamUtils.loggingSink[Ackable with Eventable](s"\n\n *** ${namespace} *** \n\n received: ")
+    val a = StreamUtils.loggingSink[Ackable](s"\n\n *** ${namespace} *** \n\n received: ")
     val b = Source.tick(delay, delay, f).map {g => g() }
     (a,b)
   }
@@ -63,7 +63,7 @@ case class TestFlowFactory(namespace:String, f:()=>Ackable with Eventable, delay
 
 case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory with LazyLogging {
 
-  def matcher[T <: Ackable with Eventable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => {
+  def matcher[T <: Ackable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => {
     logger.info(s"matcher match: ${c.ackId == t.ackId} t: ${t} c: ${c.ackId} groupId: ${c.committableOffset.partitionOffset.key.groupId} partition: ${c.committableOffset.partitionOffset.key.partition} offset: ${c.committableOffset.partitionOffset.offset}")
     c.ackId == t.ackId
   }
@@ -84,7 +84,7 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
 
-    val sink:Sink[Ackable with Eventable, Future[Done]] = Sink.foreach{ Ackker.process(ackQ.asScala, matcher)}
+    val sink:Sink[Ackable, Future[Done]] = Sink.foreach{ Ackker.process(ackQ.asScala, matcher)}
 
     Source.fromPublisher(QueuePublisher(ackQ))
       .map(_.payload.committableOffset)

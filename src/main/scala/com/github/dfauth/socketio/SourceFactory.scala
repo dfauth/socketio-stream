@@ -6,12 +6,12 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 
 trait SourceFactory {
   val namespace:String
-  def create[T >: Ackable with Eventable]:Source[T, Cancellable]
+  def create[T >: Eventable]:Source[T, Cancellable]
 }
 
 trait FlowFactory {
   val namespace:String
-  def create[U](ctx: UserContext[U]):Tuple2[Sink[Ackable with Eventable, Any], Source[Ackable with Eventable, Any]]
+  def create[U](ctx: UserContext[U]):Tuple2[Sink[Ackable, Any], Source[Eventable, Any]]
 }
 
 trait Ackable {

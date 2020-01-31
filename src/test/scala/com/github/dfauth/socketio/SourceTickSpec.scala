@@ -43,11 +43,11 @@ class SourceTickSpec extends FlatSpec
     val flowFactories:Seq[FlowFactory] = Seq(
       new FlowFactory(){
         override val namespace: String = "/left"
-        override def create[U](ctx: UserContext[U]): (Sink[Ackable with Eventable, Any], Source[Ackable with Eventable, Any]) = (loggingSink[Ackable with Eventable](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
+        override def create[U](ctx: UserContext[U]): (Sink[Ackable, Any], Source[Eventable, Any]) = (loggingSink[Ackable](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
       },
       new FlowFactory(){
         override val namespace: String = "/right"
-        override def create[U](ctx: UserContext[U]): (Sink[Ackable with Eventable, Any], Source[Ackable with Eventable, Any]) = (loggingSink[Ackable with Eventable](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
+        override def create[U](ctx: UserContext[U]): (Sink[Ackable, Any], Source[Eventable, Any]) = (loggingSink[Ackable](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
       }
     )
 
@@ -97,7 +97,7 @@ class SourceTickSpec extends FlatSpec
 
 object SocketIOServer1 {
 
-  def apply[R <: Ackable with Eventable](flowFactories:Seq[FlowFactory]) = {
+  def apply[R <: Eventable](flowFactories:Seq[FlowFactory]) = {
     implicit val system: ActorSystem = ActorSystem("socketioService")
     implicit val materializer: ActorMaterializer = ActorMaterializer()
 
