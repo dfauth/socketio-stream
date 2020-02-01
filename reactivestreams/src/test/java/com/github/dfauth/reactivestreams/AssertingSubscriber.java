@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AssertingSubscriber<T> implements Subscriber<T> {
 
@@ -57,7 +56,7 @@ public class AssertingSubscriber<T> implements Subscriber<T> {
         return asserter.assertNothingReceived();
     }
 
-    private class Asserter<T> {
+    public class Asserter<T> {
 
         private final List<T> received;
         private final List<Throwable> exceptions;

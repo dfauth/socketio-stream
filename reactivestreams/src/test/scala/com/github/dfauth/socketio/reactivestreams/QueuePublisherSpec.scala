@@ -3,7 +3,7 @@ package com.github.dfauth.socketio.reactivestreams
 import java.util
 import java.util.concurrent.Executors
 
-import com.github.dfauth.reactivestreams.{AssertingSubscriber, QueuePublisher}
+import com.github.dfauth.reactivestreams.AssertingSubscriber
 
 import scala.compat.java8.FutureConverters._
 import com.typesafe.scalalogging.LazyLogging
@@ -17,7 +17,7 @@ class QueuePublisherSpec extends FlatSpec with Matchers with LazyLogging {
   "A QueuePublisher" should "publish an object added to the queue" in {
     val q = new util.ArrayDeque[Long](10)
 
-    val publisher = new QueuePublisher[Long](q, Executors.newSingleThreadScheduledExecutor())
+    val publisher = QueuePublisher[Long](q)(Executors.newSingleThreadScheduledExecutor())
 
     val subscriber = new AssertingSubscriber[Long]()
     val whenComplete = subscriber.asserter.onComplete()
@@ -35,7 +35,7 @@ class QueuePublisherSpec extends FlatSpec with Matchers with LazyLogging {
   "A QueuePublisher" should "wait until an object is added to the queue" in {
     val q = new util.ArrayDeque[Long](10)
 
-    val publisher = new QueuePublisher[Long](q, Executors.newSingleThreadScheduledExecutor())
+    val publisher = QueuePublisher[Long](q)(Executors.newSingleThreadScheduledExecutor())
 
     val subscriber = new AssertingSubscriber[Long]()
     val whenComplete = subscriber.asserter.onComplete()

@@ -57,24 +57,13 @@ val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging,
 lazy val reactivestreams = (project in file("reactivestreams"))
   .settings(commonSettings,
     name := "reactivestreams",
-    libraryDependencies ++= commonScalaDeps ++ Seq(
-//      akkaActor,
-//      akkaHttp,
+    libraryDependencies ++= Seq(
+      scalaLogging,
+      scalatest,
+      scalactic,
       akkaStream,
       reactiveStreams,
-//      akkaTyped,
-//      guice,
-//      kafkaCore,
-//      kafkaReg,
-//      akkaStreamsKafka,
-//      kafkaAvroSerializer,
-//      kafkaClient,
-//      embeddedKafka,
-//      jodaTime,
-//      avro,
-//      socketioClient,
       testNG,
-//      scalaJava8
     )
   )
 
