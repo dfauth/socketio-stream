@@ -4,22 +4,22 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.function.Supplier
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.server.Directives.{getFromResource, getFromResourceDirectory, path, pathPrefix, _}
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.Directives._
 import akka.kafka.Subscriptions
+import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
-import akka.stream.{ActorMaterializer, FlowShape, Graph}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.avro.{SpecificRecordDeserializer, SpecificRecordSerializer}
 import com.github.dfauth.socketio.kafka.KafkaSink
 import com.github.dfauth.socketio.reactivestreams.ControllingProcessor
-import com.typesafe.scalalogging.LazyLogging
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.scalatest.{FlatSpec, Matchers}
-import com.github.dfauth.socketio.utils.StreamUtils._
+import com.github.dfauth.socketio.utils.StreamUtils.{secondsOf, tickingSupplyOf}
 import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.{MockSchemaRegistryClient, SchemaRegistryClient}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.joda.time.DateTime
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration

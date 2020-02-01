@@ -1,8 +1,15 @@
+import sbt.Keys.libraryDependencies
+
 name := "socketio-stream"
 
 version := "0.1-SNAPSHOT"
 
 scalaVersion := "2.12.6"
+
+lazy val commonSettings = Seq(
+  publishArtifact := true
+)
+
 
 val kafkaVersion = "2.4.0"
 val akkaVersion = "2.6.1"
@@ -43,11 +50,46 @@ val reactiveStreams = "org.reactivestreams" % "reactive-streams" % "1.0.3"
 val scalaJava8 = "org.scala-lang.modules" %% "scala-java8-compat" % "0.3.0" % Test
 
 
+
+
 val commonScalaDeps = Seq(scalactic, scalatest, akkaHttpSprayJson, scalaLogging, logback)
 
+lazy val reactivestreams = (project in file("reactivestreams"))
+  .settings(commonSettings,
+    name := "reactivestreams",
+    libraryDependencies ++= commonScalaDeps ++ Seq(
+//      akkaActor,
+//      akkaHttp,
+      akkaStream,
+      reactiveStreams,
+//      akkaTyped,
+//      guice,
+//      kafkaCore,
+//      kafkaReg,
+//      akkaStreamsKafka,
+//      kafkaAvroSerializer,
+//      kafkaClient,
+//      embeddedKafka,
+//      jodaTime,
+//      avro,
+//      socketioClient,
+      testNG,
+//      scalaJava8
+    )
+  )
 
-lazy val root = (project in file("."))
-  .settings(
+lazy val socketioApi = (project in file("socketio-api"))
+  .settings(commonSettings,
+    name := "socketio-api",
+    libraryDependencies ++= Seq(
+      akkaActor,
+      akkaStream
+    )
+  )
+
+lazy val socketio = (project in file("socketio"))
+  .settings(commonSettings,
+    name := "socketio",
     libraryDependencies ++= commonScalaDeps ++ Seq(
       akkaActor,
       akkaHttp,
@@ -55,6 +97,30 @@ lazy val root = (project in file("."))
       reactiveStreams,
       akkaTyped,
       guice,
+//      kafkaCore,
+//      kafkaReg,
+//      akkaStreamsKafka,
+//      kafkaAvroSerializer,
+//      kafkaClient,
+//      embeddedKafka,
+//      jodaTime,
+//      avro,
+      socketioClient,
+//      testNG,
+//      scalaJava8
+    )
+  ).dependsOn(reactivestreams, socketioApi)
+
+lazy val kafkaStream = (project in file("kafka-stream"))
+  .settings(commonSettings,
+    name := "kafka-stream",
+    libraryDependencies ++= commonScalaDeps ++ Seq(
+//      akkaActor,
+//      akkaHttp,
+      akkaStreamTyped,
+//      reactiveStreams,
+//      akkaTyped,
+//      guice,
       kafkaCore,
       kafkaReg,
       akkaStreamsKafka,
@@ -63,11 +129,42 @@ lazy val root = (project in file("."))
       embeddedKafka,
       jodaTime,
       avro,
-      socketioClient,
-      testNG,
-      scalaJava8
+//      socketioClient,
+//      testNG,
+//      scalaJava8
     )
+  ).dependsOn(socketioApi, reactivestreams)
+
+lazy val testStream = (project in file("test-stream"))
+  .settings(commonSettings,
+    name := "test-stream",
+    libraryDependencies ++= commonScalaDeps ++ Seq(
+//      akkaActor,
+//      akkaHttp,
+//      akkaStreamTyped,
+//      reactiveStreams,
+//      akkaTyped,
+//      guice,
+//      kafkaCore,
+//      kafkaReg,
+//      akkaStreamsKafka,
+//      kafkaAvroSerializer,
+//      kafkaClient,
+//      embeddedKafka,
+//      jodaTime,
+//      avro,
+//      socketioClient,
+//      testNG,
+//      scalaJava8
+    )
+  ).dependsOn(socketio, reactivestreams)
+
+lazy val socketioStream = (project in file("."))
+  .settings(
+    publishLocal := {},
   )
+  .dependsOn(socketio % "compile->compile;test->test", socketioApi % "compile->compile;test->test", kafkaStream % "compile->compile;test->test", testStream % "compile->compile;test->test", reactivestreams % "compile->compile;test->test")
+  .aggregate(socketio, socketioApi, testStream, kafkaStream, reactivestreams)
   .enablePlugins(AssemblyPlugin)
 
 
