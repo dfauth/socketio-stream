@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.util.Optional
 
 import com.typesafe.scalalogging.LazyLogging
-import kafka.coordinator.group.{BaseKey, GroupMetadataManager, OffsetKey}
+import kafka.coordinator.group.GroupMetadataManager
 import org.apache.kafka.common.serialization.Deserializer
 
 case class OffsetKey(override val version:Short, override val key:Any) extends kafka.coordinator.group.BaseKey

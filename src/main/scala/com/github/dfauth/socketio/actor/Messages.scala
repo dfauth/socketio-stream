@@ -30,7 +30,7 @@ case class FetchSession(id:String) extends AskSupport[FetchSessionCommand, Fetch
 }
 case class FetchSessionCommand(id:String, replyTo:ActorRef[FetchSessionReply]) extends ControlCommand with AskCommand[FetchSessionReply]
 case class FetchSessionReply(id:String, namespaces:Iterable[String], ref:ActorRef[Command], sink:Sink[Command, NotUsed], src:Source[Command, NotUsed]) extends ControlCommand
-case class ErrorMessage(id:String, t:Throwable) extends ControlCommand
+class ErrorMessage(override val id:String, msg:String, t:Option[Throwable]) extends ControlCommand
 case class EventCommand(id:String, namespace:String, payload:Option[String] = None) extends Command
 case class AckCommand(id:String, namespace:String, ackId:Long, payload:Option[String] = None) extends Command
 case class MessageCommand[T](id:String, namespace:String, payload:T) extends Command
@@ -40,3 +40,8 @@ class ActorMonitorCommand(key:ServiceKey[Command]) extends ControlCommand {
 }
 case class ActorTerminatedCommand(key:ServiceKey[Command]) extends ActorMonitorCommand(key)
 case class ActorCreatedCommand(key:ServiceKey[Command], ref:ActorRef[Command]) extends ActorMonitorCommand(key)
+
+object ErrorMessage {
+  def apply(id:String, t:Throwable) = new ErrorMessage(id, t.getMessage, Some(t))
+  def apply(id:String, msg:String) = new ErrorMessage(id, msg, None)
+}

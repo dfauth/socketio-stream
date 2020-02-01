@@ -2,6 +2,7 @@ package com.github.dfauth.socketio.protocol
 
 import com.github.dfauth.socketio._
 import com.github.dfauth.socketio.actor._
+import com.github.dfauth.socketio.protocol.Connect.{logger, unsupported}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.mutable.ArrayBuffer
@@ -21,18 +22,27 @@ object SocketIOMessageType {
   }
 }
 
-sealed class SocketIOMessageType(override val value:Int) extends ProtocolMessageType {
+sealed class SocketIOMessageType(override val value:Int) extends ProtocolMessageType with LazyLogging {
   def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = ???
+
+  def unsupported(id:String, x: Option[SocketIOPacket]): Command = {
+    val msg = s"received unexpected/unsupported message ${x}"
+    logger.warn(msg)
+    ErrorMessage(id, msg)
+  }
 }
 
 case object Connect extends SocketIOMessageType(0) {
+
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
     case Some(SocketIOPacket(namespace, _, _)) => AddNamespace(ctx.token, namespace)
+    case x => unsupported(ctx.token, x)
   }
 }
 case object Disconnect extends SocketIOMessageType(1) {
   override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
     case Some(SocketIOPacket(namespace, _, _)) => EndStream(ctx.token, namespace)
+    case x => unsupported(ctx.token, x)
   }
 }
 case object Event extends SocketIOMessageType(2) {

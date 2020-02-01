@@ -104,6 +104,10 @@ object EngineIOEnvelope extends LazyLogging {
     } // ignore
     case EngineIOEnvelope(Ping, None) => Some(EngineIOEnvelope.heartbeat())
     case EngineIOEnvelope(Ping, Some(EngineIOStringPacket(m))) => Some(EngineIOEnvelope.heartbeat(Some(m)))
+    case x => {
+      logger.warn(s"received unexpected message: ${x}, ignoring")
+      None
+    }
   }
 
   def handleEngineIOHeartbeat: PartialFunction[EngineIOEnvelope, EngineIOEnvelope] = {
@@ -150,6 +154,10 @@ case object Close extends EngineIOMessageType(1) {
   override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = {
     e.data match {
       case None => EndSession(ctx.token)
+      case x => {
+        logger.warn(s"received unexpected message: ${x}, ignoring")
+        ErrorMessage(ctx.token, s"received unexpected message: ${x}, ignoring")
+      }
     }
   }
 }
