@@ -1,0 +1,24 @@
+@namespace("com.github.dfauth.socketio")
+protocol Example {
+
+  record Envelope{
+    string id;
+    map<string> metadata;
+    string schemaRegistryTopic;
+    bytes payload;
+  }
+
+  record TestEvent {
+    string name;
+    long ackId;
+    string payload;
+  }
+
+  record AnotherTestEvent {
+    string name;
+    long ackId;
+    long payload;
+    timestamp_ms ts;
+  }
+
+}
