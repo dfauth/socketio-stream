@@ -7,8 +7,8 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
-import com.github.dfauth.socketio.actor.{Command, EndSession, ErrorMessage, EndStream}
-import com.github.dfauth.socketio.{SocketIOConfig, UserContext}
+import com.github.dfauth.socketio.actor.{Command, EndSession, ErrorMessage}
+import com.github.dfauth.socketio.{AuthenticationContext, SocketIOConfig}
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 
@@ -146,12 +146,12 @@ object EngineIOMessageType {
 }
 
 sealed class EngineIOMessageType(override val value:Int) extends ProtocolMessageType with LazyLogging {
-  def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = ???
+  def toActorMessage[U](ctx:AuthenticationContext[U], e: EngineIOEnvelope): Command = ???
 }
 
 case object Open extends EngineIOMessageType(0)
 case object Close extends EngineIOMessageType(1) {
-  override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = {
+  override def toActorMessage[U](ctx:AuthenticationContext[U], e: EngineIOEnvelope): Command = {
     e.data match {
       case None => EndSession(ctx.token)
       case x => {
@@ -176,7 +176,7 @@ case object Msg extends EngineIOMessageType(4) {
       }
     }
   }
-  override def toActorMessage[U](ctx:UserContext[U], e: EngineIOEnvelope): Command = {
+  override def toActorMessage[U](ctx:AuthenticationContext[U], e: EngineIOEnvelope): Command = {
     e.data match {
       case Some(EngineIOSocketIOPacket(SocketIOEnvelope(msgType, data))) => {
         logger.info(s"SocketIOEnvelope contains: ${msgType} ${data}")

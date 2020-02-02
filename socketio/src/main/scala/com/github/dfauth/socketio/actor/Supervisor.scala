@@ -12,10 +12,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
 
 object Supervisor {
-  def apply(flowFactories:Seq[FlowFactory]): Behavior[Command] = Behaviors.setup[Command](context => new Supervisor(context, flowFactories))
+  def apply[U](flowFactories:Seq[FlowFactory[U]]): Behavior[Command] = Behaviors.setup[Command](context => new Supervisor(context, flowFactories))
 }
 
-class Supervisor(val ctx: ActorContext[Command], flowFactories:Seq[FlowFactory]) extends AbstractBehavior[Command](ctx) with LazyLogging with MonitorMixIn[Command] {
+class Supervisor[U](val ctx: ActorContext[Command], flowFactories:Seq[FlowFactory[U]]) extends AbstractBehavior[Command](ctx) with LazyLogging with MonitorMixIn[Command] {
 
   ctx.log.info("supervisor: started")
 
@@ -31,7 +31,10 @@ class Supervisor(val ctx: ActorContext[Command], flowFactories:Seq[FlowFactory])
   override def onMessage(msg: Command): Behavior[Command] = {
     logger.info(s"supervisor: received message ${msg}")
     msg match {
-      case CreateSessionCommand(id, userCtx, replyTo) => {
+      case c:CreateSessionCommand[U] => {
+        val id = c.id
+        val userCtx = c.userCtx
+        val replyTo = c.replyTo
         cache.get(serviceKey(id)).map { ref =>
           // lookup in progress use its on completion value
           ref.onComplete {
@@ -48,7 +51,7 @@ class Supervisor(val ctx: ActorContext[Command], flowFactories:Seq[FlowFactory])
           val f = lookup(serviceKey(id)) {
             case Nil => {
               logger.info(s"supervisor: no actor found for id: ${id}")
-              val ref = ctx.spawn[Command](SessionManager(userCtx, flowFactories), id)
+              val ref = ctx.spawn[Command](SessionManager[U](userCtx, flowFactories), id)
               registerActor(serviceKey(id), ref)
               subscribeToActor(serviceKey(id), ctx.self)
               replyTo ! SessionCreated(id)

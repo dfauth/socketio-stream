@@ -23,7 +23,7 @@ object SocketIOMessageType {
 }
 
 sealed class SocketIOMessageType(override val value:Int) extends ProtocolMessageType with LazyLogging {
-  def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = ???
+  def toActorMessage[U](ctx:AuthenticationContext[U], data: Option[SocketIOPacket]): Command = ???
 
   def unsupported(id:String, x: Option[SocketIOPacket]): Command = {
     val msg = s"received unexpected/unsupported message ${x}"
@@ -34,19 +34,19 @@ sealed class SocketIOMessageType(override val value:Int) extends ProtocolMessage
 
 case object Connect extends SocketIOMessageType(0) {
 
-  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
+  override def toActorMessage[U](ctx:AuthenticationContext[U], data: Option[SocketIOPacket]): Command = data match {
     case Some(SocketIOPacket(namespace, _, _)) => AddNamespace(ctx.token, namespace)
     case x => unsupported(ctx.token, x)
   }
 }
 case object Disconnect extends SocketIOMessageType(1) {
-  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = data match {
+  override def toActorMessage[U](ctx:AuthenticationContext[U], data: Option[SocketIOPacket]): Command = data match {
     case Some(SocketIOPacket(namespace, _, _)) => EndStream(ctx.token, namespace)
     case x => unsupported(ctx.token, x)
   }
 }
 case object Event extends SocketIOMessageType(2) {
-  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = {
+  override def toActorMessage[U](ctx:AuthenticationContext[U], data: Option[SocketIOPacket]): Command = {
     data.map { e => {
       e.payload.map { f => EventCommand(ctx.token, e.namespace, Some(f)) } getOrElse { EventCommand(ctx.token, e.namespace) }
 
@@ -54,7 +54,7 @@ case object Event extends SocketIOMessageType(2) {
   }
 }
 case object Ack extends SocketIOMessageType(3) {
-  override def toActorMessage[U](ctx:UserContext[U], data: Option[SocketIOPacket]): Command = {
+  override def toActorMessage[U](ctx:AuthenticationContext[U], data: Option[SocketIOPacket]): Command = {
     data.map {
       e => e.ackId.map ( y => AckCommand(ctx.token, e.namespace, y)).getOrElse{
         ErrorMessage(ctx.token, new RuntimeException("Oops, no ackId found"))

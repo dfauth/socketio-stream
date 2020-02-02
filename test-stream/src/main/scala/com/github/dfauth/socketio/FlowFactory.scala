@@ -27,9 +27,9 @@ case class AvroEvent[T <: SpecificRecordBase](t:T, eventId:String, ackId:Long) e
   override def toString: String = new String(AvroUtils.toByteArray(t.getSchema, t))
 }
 
-case class TestFlowFactory(namespace:String, f:()=>Event, delay:FiniteDuration) extends FlowFactory {
+case class TestFlowFactory[U](namespace:String, f:()=>Event, delay:FiniteDuration) extends FlowFactory[U] {
 
-  override def create[U](ctx: UserContext[U]) = {
+  override def create(ctx: AuthenticationContext[U]) = {
     val a = loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: ")
     val b = Source.tick(delay, delay, f).map {g => g() }
     (a,b)

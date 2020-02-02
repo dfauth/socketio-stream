@@ -5,7 +5,9 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.receptionist.ServiceKey
 import akka.stream.scaladsl.{Sink, Source}
 import com.github.dfauth.socketio.actor.ActorUtils.AskSupport
-import com.github.dfauth.socketio.{Acknowledgement, Event, UserContext}
+import com.github.dfauth.socketio.{Acknowledgement, AuthenticationContext, Event}
+
+import scala.reflect.ClassTag
 
 trait Command {
   val id:String
@@ -15,14 +17,14 @@ trait Command {
 trait ControlCommand extends Command {
   override val namespace: String = ""
 }
-case class CreateSession[U](userCtx:UserContext[U]) extends AskSupport[CreateSessionCommand[U], CreateSessionReply] {
+case class CreateSession[U](userCtx:AuthenticationContext[U]) extends AskSupport[CreateSessionCommand[U], CreateSessionReply] {
   override def apply(ref:ActorRef[CreateSessionReply]) = CreateSessionCommand(userCtx.token, userCtx, ref)
 }
 trait CreateSessionReply extends ControlCommand
 case class SessionCreated(id:String) extends CreateSessionReply
 case class SessionExists(id:String) extends CreateSessionReply
 case class SessionCreationError(id:String, t:Throwable) extends CreateSessionReply
-case class CreateSessionCommand[U](id:String, userCtx:UserContext[U], replyTo: ActorRef[CreateSessionReply]) extends ControlCommand with AskCommand[CreateSessionReply]
+case class CreateSessionCommand[U](id:String, userCtx:AuthenticationContext[U], replyTo: ActorRef[CreateSessionReply]) extends ControlCommand with AskCommand[CreateSessionReply]
 case class AddNamespace(id:String, toBeAdded:String) extends ControlCommand
 case class EndSession(id:String) extends ControlCommand
 case class FetchSession(id:String) extends AskSupport[FetchSessionCommand, FetchSessionReply] {

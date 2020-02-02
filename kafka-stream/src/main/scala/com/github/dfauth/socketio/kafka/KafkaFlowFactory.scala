@@ -10,20 +10,21 @@ import akka.kafka.scaladsl.Committer
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.github.dfauth.reactivestreams.{CompositeProcessor, QueueSubscriber}
+import com.github.dfauth.socketio.{Acknowledgement, AuthenticationContext, CommittableKafkaContext, FlowFactory, KafkaStreamConfig, StreamMessage, StreamService}
 import com.github.dfauth.socketio.reactivestreams.QueuePublisher
 import com.github.dfauth.socketio.utils.StreamUtils.loggingFn
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue}
-import com.github.dfauth.socketio._
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import org.apache.avro.specific.SpecificRecordBase
 import org.reactivestreams.Processor
+
 import scala.compat.java8.FunctionConverters._
 import scala.collection.JavaConverters._
-
 import scala.concurrent.Future
 
-case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory with LazyLogging {
+case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory[User] with LazyLogging {
 
   def matcher = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:Acknowledgement) => {
     logger.info(s"matcher match: ${c.ackId == t.ackId} t: ${t} c: ${c.ackId} groupId: ${c.committableOffset.partitionOffset.key.groupId} partition: ${c.committableOffset.partitionOffset.key.partition} offset: ${c.committableOffset.partitionOffset.offset}")
@@ -36,12 +37,12 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
 
   val tidied = "[A-Za-z0-9]+".r.findFirstIn(namespace).getOrElse("")
 
-  override def create[U](ctx: UserContext[U]) = {
+  override def create(ctx: AuthenticationContext[User]) = {
 
-    val bufferSize = ctx.config.getInt("kafka.acknowledgment.buffer.size")
+    val bufferSize = ctx.payload.config.getInt("kafka.acknowledgment.buffer.size")
 
     val ackQ:util.Queue[Ackker[CommittableKafkaContext[SpecificRecordBase]]] = new FilteringQueue[Ackker[CommittableKafkaContext[SpecificRecordBase]]](bufferSize, a =>
-      !ctx.config.getBoolean(s"kafka.topics.${tidied}.acknowledge") || a.isAcked)
+      !ctx.payload.config.getBoolean(s"kafka.topics.${tidied}.acknowledge") || a.isAcked)
 
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
@@ -63,8 +64,14 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
     val src = in
       .via(Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)))
       .via(Flow.fromProcessor(() => qProcessor))
-      .via(Flow.fromFunction((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => BlahObject(e.payload, eventId, e.ackId)))
+      .via(Flow.fromFunction((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => AvroEvent(e.payload, eventId, e.ackId)))
 
     (sink,src)
   }
+
 }
+
+case class User(name:String, roles:Seq[String] = Seq.empty) {
+  val config: Config = KafkaStreamConfig(ConfigFactory.load()).getContextConfig(s"prefs.${name}")
+}
+

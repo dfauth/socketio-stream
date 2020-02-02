@@ -53,7 +53,7 @@ class StreamServiceImpl[T <: SpecificRecordBase](consumerSettings: ConsumerSetti
 }
 
 object StreamService {
-  def apply[T <: SpecificRecordBase, U](userCtx:UserContext[U], brokerList: String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system: ActorSystem):StreamService[T] = {
+  def apply[T <: SpecificRecordBase, U](userCtx:AuthenticationContext[U], brokerList: String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system: ActorSystem):StreamService[T] = {
 
     val schemaRegUrl = system.settings.config.getString("schemaRegUrl")
     val deserializer:SpecificRecordDeserializer[Envelope] = SpecificRecordDeserializer.Builder

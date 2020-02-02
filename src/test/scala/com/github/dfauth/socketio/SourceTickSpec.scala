@@ -9,6 +9,7 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
+import com.github.dfauth.socketio.kafka.User
 import com.github.dfauth.socketio.reactivestreams.{ControllingProcessor, Processors}
 import com.github.dfauth.socketio.utils.StreamUtils._
 import com.typesafe.scalalogging.LazyLogging
@@ -38,14 +39,14 @@ class SourceTickSpec extends FlatSpec
     tickingSupplyOf(anotherTestEventSupplier("right"), secondsOf(0.917)).runWith(sink1)
     val srcRight = src1.map { t => AvroEvent(t, t.getName.toString, t.getAckId)}
 
-    val flowFactories:Seq[FlowFactory] = Seq(
-      new FlowFactory(){
+    val flowFactories:Seq[FlowFactory[User]] = Seq(
+      new FlowFactory[User](){
         override val namespace: String = "/left"
-        override def create[U](ctx: UserContext[U]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
+        override def create(ctx: AuthenticationContext[User]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
       },
-      new FlowFactory(){
+      new FlowFactory[User](){
         override val namespace: String = "/right"
-        override def create[U](ctx: UserContext[U]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
+        override def create(ctx: AuthenticationContext[User]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
       }
     )
 
@@ -95,7 +96,7 @@ class SourceTickSpec extends FlatSpec
 
 object SocketIOServer1 {
 
-  def apply[R <: Event](flowFactories:Seq[FlowFactory]) = {
+  def apply[R <: Event](flowFactories:Seq[FlowFactory[User]]) = {
     implicit val system: ActorSystem = ActorSystem("socketioService")
     implicit val materializer: ActorMaterializer = ActorMaterializer()
 
@@ -104,7 +105,7 @@ object SocketIOServer1 {
       override val route: Route = SocketIoStream(system, validator, flowFactories).route ~ static
     }.start()
 
-    def validator:TokenValidator[User] = t => Success(UserContextImpl(t, User("fred", Seq("user"))))
+    def validator:TokenValidator[User] = t => Success(AuthenticationContextImpl(t, User("fred", Seq("user"))))
 
   }
 

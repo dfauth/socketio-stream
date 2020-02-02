@@ -28,14 +28,14 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], flowFactories:Seq[FlowFactory]) extends LazyLogging {
+class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], flowFactories:Seq[FlowFactory[U]]) extends LazyLogging {
   implicit val materializer = Materializer.apply(system)
   val config = SocketIOConfig(ConfigFactory.load())
   val route = subscribe
   val typedSystem = TypedActorSystem[Command](Supervisor(flowFactories), "socket_io")
   val supervisor:ActorRef[Command] = typedSystem
   def octetStream(source: Source[ByteString, NotUsed]): ToResponseMarshallable = HttpResponse(entity = HttpEntity.Chunked.fromData(ContentTypes.`application/octet-stream`, source))
-  def tokenAuth(r:UserContext[U] => Route):Route = optionalHeaderValueByName("x-auth") { token =>
+  def tokenAuth(r:AuthenticationContext[U] => Route):Route = optionalHeaderValueByName("x-auth") { token =>
     val handleValidation = (t:String) => tokenValidator(t) match {
       case Success(u) => {
         logger.info(s"validatetoken($t): ${u}")
@@ -77,7 +77,7 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], 
 
   def messageToEngineIoEnvelopeFlow():Flow[Message, EngineIOEnvelope, NotUsed] = Flow.fromProcessor(() => messageToEngineIoEnvelopeProcessor())
 
-  def engineIoEnvelopeToCommandProcessor(userCtx:UserContext[U]):Processor[EngineIOEnvelope, Command] = FunctionProcessor[EngineIOEnvelope, Command]((e:EngineIOEnvelope) => e.messageType.toActorMessage(userCtx, e), "e2c")
+  def engineIoEnvelopeToCommandProcessor(userCtx:AuthenticationContext[U]):Processor[EngineIOEnvelope, Command] = FunctionProcessor[EngineIOEnvelope, Command]((e:EngineIOEnvelope) => e.messageType.toActorMessage(userCtx, e), "e2c")
 
   def engineIoEnvelopeToCommandSink(processor:Processor[EngineIOEnvelope, Command]):Sink[EngineIOEnvelope, NotUsed] = Sink.fromSubscriber(processor)
 
@@ -164,6 +164,6 @@ class SocketIoStream[U](system: ActorSystem, tokenValidator: TokenValidator[U], 
   }
 }
 object SocketIoStream {
-  type TokenValidator[U] = String => Try[UserContext[U]]
-  def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U], flowFactories:Seq[FlowFactory]): SocketIoStream[U] = new SocketIoStream(system, tokenValidator, flowFactories)
+  type TokenValidator[U] = String => Try[AuthenticationContext[U]]
+  def apply[U](system: ActorSystem, tokenValidator: TokenValidator[U], flowFactories:Seq[FlowFactory[U]]): SocketIoStream[U] = new SocketIoStream(system, tokenValidator, flowFactories)
 }

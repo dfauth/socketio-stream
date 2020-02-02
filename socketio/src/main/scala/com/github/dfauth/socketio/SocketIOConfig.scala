@@ -15,5 +15,4 @@ case class SocketIOConfig(config: Config) {
   val namespaces = config.getStringList("engineio.namespaces").asScala
   val offsetRest = config.getString("kafka.consumer.auto.offset.reset")
 
-  def getContextConfig(ctx:String):Config = config.getConfig(ctx)
 }

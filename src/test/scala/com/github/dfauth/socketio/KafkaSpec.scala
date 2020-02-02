@@ -151,7 +151,7 @@ object SocketIOServer {
     val i = new AtomicInteger()
     val topic0 = Subscriptions.topics(Set("left"))
     val topic1 = Subscriptions.topics(Set("right"))
-    val flowFactories:Seq[FlowFactory] = Seq(
+    val flowFactories:Seq[FlowFactory[User]] = Seq(
       new KafkaFlowFactory("/left", "left", topic0, schemaRegClient),
       new KafkaFlowFactory("/right", "right", topic1, schemaRegClient)
     )
@@ -161,7 +161,7 @@ object SocketIOServer {
       override val route: Route = SocketIoStream(system, validator, flowFactories).route ~ static
     }.start()
 
-    def validator:TokenValidator[User] = t => Success(new UserContextImpl(t, User("fred", Seq("user"))))
+    def validator:TokenValidator[User] = t => Success(new AuthenticationContextImpl(t, User("fred", Seq("user"))))
 
   }
 
