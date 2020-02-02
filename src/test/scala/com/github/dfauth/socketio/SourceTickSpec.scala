@@ -41,11 +41,11 @@ class SourceTickSpec extends FlatSpec
     val flowFactories:Seq[FlowFactory] = Seq(
       new FlowFactory(){
         override val namespace: String = "/left"
-        override def create[U](ctx: UserContext[U]): (Sink[Ackable, Any], Source[Eventable, Any]) = (loggingSink[Ackable](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
+        override def create[U](ctx: UserContext[U]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
       },
       new FlowFactory(){
         override val namespace: String = "/right"
-        override def create[U](ctx: UserContext[U]): (Sink[Ackable, Any], Source[Eventable, Any]) = (loggingSink[Ackable](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
+        override def create[U](ctx: UserContext[U]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
       }
     )
 
@@ -95,7 +95,7 @@ class SourceTickSpec extends FlatSpec
 
 object SocketIOServer1 {
 
-  def apply[R <: Eventable](flowFactories:Seq[FlowFactory]) = {
+  def apply[R <: Event](flowFactories:Seq[FlowFactory]) = {
     implicit val system: ActorSystem = ActorSystem("socketioService")
     implicit val materializer: ActorMaterializer = ActorMaterializer()
 

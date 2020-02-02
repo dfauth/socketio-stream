@@ -1,5 +1,5 @@
 package com.github.dfauth.socketio;
 
-public interface Ackable {
+public interface Acknowledgement extends StreamMessage {
     long ackId();
 }

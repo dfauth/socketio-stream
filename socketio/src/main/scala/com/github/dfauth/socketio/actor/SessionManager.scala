@@ -3,7 +3,7 @@ package com.github.dfauth.socketio.actor
 import akka.NotUsed
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{Behavior, PostStop, Signal}
-import akka.stream.{FlowShape, Graph, Materializer, SourceShape}
+import akka.stream.{FlowShape, Graph, Materializer, SinkShape, SourceShape}
 import akka.stream.scaladsl.{BidiFlow, BroadcastHub, Flow, GraphDSL, Keep, MergeHub, RunnableGraph, Sink, Source}
 import akka.stream.typed.scaladsl.ActorSink
 import com.github.dfauth.socketio
@@ -32,11 +32,11 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:UserContext[U], flow
     t => ErrorMessage(userCtx.token, t)
   ))
 
-  def outbound(namespace:String):Eventable => Command = (m:Eventable) => m match {
-    case a:Ackable => MessageCommand(userCtx.token, namespace, socketio.EventWrapper(m.eventId, m, Some(a.ackId)))
+  def outbound(namespace:String):Event => Command = (m:Event) => m match {
+    case a:Acknowledgement => MessageCommand(userCtx.token, namespace, socketio.EventWrapper(m.eventId, m, Some(a.ackId)))
     case _ => MessageCommand(userCtx.token, namespace, socketio.EventWrapper(m.eventId, m, None))
   }
-  def inbound:Command => Ackable = (c:Command) => c match {
+  def inbound:Command => StreamMessage = (c:Command) => c match {
     case e:AckCommand => e.payload.map { new AcknowledgeableEventMessage(_, e.ackId)}.getOrElse(new AcknowledgeableEventMessage("missing ack message", e.ackId))
     case x => {
       val e = new IllegalArgumentException(s"Unexpected message type: ${x}")

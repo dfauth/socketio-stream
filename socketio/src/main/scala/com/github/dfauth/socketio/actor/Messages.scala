@@ -5,7 +5,7 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.receptionist.ServiceKey
 import akka.stream.scaladsl.{Sink, Source}
 import com.github.dfauth.socketio.actor.ActorUtils.AskSupport
-import com.github.dfauth.socketio.{Ackable, Eventable, UserContext}
+import com.github.dfauth.socketio.{Acknowledgement, Event, UserContext}
 
 trait Command {
   val id:String
@@ -46,7 +46,7 @@ object ErrorMessage {
   def apply(id:String, msg:String) = new ErrorMessage(id, msg, None)
 }
 
-case class AcknowledgeableEventMessage(msg:String, ackId:Long) extends Eventable with Ackable {
+case class AcknowledgeableEventMessage(msg:String, ackId:Long) extends Event with Acknowledgement {
   val eventId:String = "ack"
   override def toString: String = s""""${msg} ack id: ${ackId}""""
 }

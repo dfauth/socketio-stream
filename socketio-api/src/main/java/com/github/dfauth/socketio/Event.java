@@ -1,5 +1,5 @@
 package com.github.dfauth.socketio;
 
-public interface Eventable {
+public interface Event extends StreamMessage {
     String eventId();
 }

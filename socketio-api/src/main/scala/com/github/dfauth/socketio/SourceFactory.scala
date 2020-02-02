@@ -6,12 +6,12 @@ import com.typesafe.config.Config
 
 trait SourceFactory {
   val namespace:String
-  def create[T >: Eventable]:Source[T, Cancellable]
+  def create[T >: Event]:Source[T, Cancellable]
 }
 
 trait FlowFactory {
   val namespace:String
-  def create[U](ctx: UserContext[U]):Tuple2[Sink[Ackable, Any], Source[Eventable, Any]]
+  def create[U](ctx: UserContext[U]):Tuple2[Sink[StreamMessage, Any], Source[Event, Any]]
 }
 
 trait UserContext[U] {

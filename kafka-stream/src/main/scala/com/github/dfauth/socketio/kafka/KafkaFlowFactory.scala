@@ -25,7 +25,7 @@ import scala.concurrent.Future
 
 case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subscription, schemaRegClient: SchemaRegistryClient)(implicit system:ActorSystem) extends FlowFactory with LazyLogging {
 
-  def matcher[T <: Ackable] = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:T) => {
+  def matcher = (c:CommittableKafkaContext[_ <: SpecificRecordBase], t:Acknowledgement) => {
     logger.info(s"matcher match: ${c.ackId == t.ackId} t: ${t} c: ${c.ackId} groupId: ${c.committableOffset.partitionOffset.key.groupId} partition: ${c.committableOffset.partitionOffset.key.partition} offset: ${c.committableOffset.partitionOffset.offset}")
     c.ackId == t.ackId
   }
@@ -46,7 +46,7 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
     implicit val ec = Executors.newSingleThreadScheduledExecutor()
 
 
-    val sink:Sink[Ackable, Future[Done]] = Sink.foreach{ Ackker.process(ackQ.asScala, matcher)}
+    val sink:Sink[StreamMessage, Future[Done]] = Sink.foreach{ Ackker.process(ackQ.asScala, matcher)}.asInstanceOf[Sink[StreamMessage, Future[Done]]]
 
     Source.fromPublisher(QueuePublisher(ackQ))
       .map(_.payload.committableOffset)
