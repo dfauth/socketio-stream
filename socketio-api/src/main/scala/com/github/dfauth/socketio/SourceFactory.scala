@@ -1,13 +1,7 @@
 package com.github.dfauth.socketio
 
-import akka.actor.Cancellable
 import akka.stream.scaladsl.{Sink, Source}
 import com.typesafe.config.Config
-
-trait SourceFactory {
-  val namespace:String
-  def create[T >: Event]:Source[T, Cancellable]
-}
 
 trait FlowFactory {
   val namespace:String

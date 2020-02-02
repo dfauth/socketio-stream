@@ -34,9 +34,9 @@ class SourceTickSpec extends FlatSpec
   "akka streams" should "allow objects to be streamed from a ticking source" in {
 
     tickingSupplyOf(testEventSupplier("left")).runWith(sink0)
-    val srcLeft = src0.map { t => BlahObject(t, t.getName.toString, t.getAckId)}
+    val srcLeft = src0.map { t => AvroEvent(t, t.getName.toString, t.getAckId)}
     tickingSupplyOf(anotherTestEventSupplier("right"), secondsOf(0.917)).runWith(sink1)
-    val srcRight = src1.map { t => BlahObject(t, t.getName.toString, t.getAckId)}
+    val srcRight = src1.map { t => AvroEvent(t, t.getName.toString, t.getAckId)}
 
     val flowFactories:Seq[FlowFactory] = Seq(
       new FlowFactory(){
