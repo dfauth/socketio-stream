@@ -61,12 +61,12 @@ case class KafkaFlowFactory(namespace:String, eventId:String, subscription: Subs
     val qProcessor:Processor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]] =
       new CompositeProcessor[Ackker[CommittableKafkaContext[SpecificRecordBase]], CommittableKafkaContext[SpecificRecordBase]](new QueueSubscriber[Ackker[CommittableKafkaContext[SpecificRecordBase]]](ackQ, bufferSize), javaUnWrapper)
 
-    val src = in
+    val src = in.map(loggingFn("WOOZ"))
       .via(Flow.fromFunction((e:CommittableKafkaContext[SpecificRecordBase]) => Ackker(e)))
       .via(Flow.fromProcessor(() => qProcessor))
       .via(Flow.fromFunction((e:CommittableKafkaContext[_ <: SpecificRecordBase]) => AvroEvent(e.payload, eventId, e.ackId)))
 
-    (sink,src)
+    Flow.fromSinkAndSource(sink,src)
   }
 
 }

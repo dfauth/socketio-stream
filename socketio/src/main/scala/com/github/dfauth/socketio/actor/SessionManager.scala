@@ -3,12 +3,13 @@ package com.github.dfauth.socketio.actor
 import akka.NotUsed
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{Behavior, PostStop, Signal}
-import akka.stream.{Materializer}
+import akka.stream.Materializer
 import akka.stream.scaladsl.{BroadcastHub, Flow, Keep, MergeHub, Sink, Source}
 import akka.stream.typed.scaladsl.ActorSink
 import com.github.dfauth.socketio
 import com.github.dfauth.socketio.reactivestreams.Processors._
 import com.github.dfauth.socketio._
+import com.github.dfauth.socketio.utils.StreamUtils
 
 object SessionManager {
   def apply[U](userCtx:AuthenticationContext[U], flowFactories:Seq[FlowFactory[U]]): Behavior[Command] = Behaviors.setup[Command](context => new SessionManager(context, userCtx, flowFactories))
@@ -21,11 +22,9 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:AuthenticationContex
   logger.info(s"session manager started with user ctx: ${userCtx}")
 
   val (sink0, source0) = sinkToSource[Command]
-  val streamSource:Source[Command, NotUsed] = source0.toMat(BroadcastHub.sink[Command](16))(Keep.right).run()
-
   val (sink, source) = sinkToSource[Command]
   val streamSink:Sink[Command, NotUsed] = MergeHub.source[Command](16).to(sink).run()
-  val streamFlow:Flow[Command, Command, NotUsed] = Flow.fromSinkAndSource(streamSink, streamSource)
+  val streamSource:Source[Command, NotUsed] = source0.toMat(BroadcastHub.sink[Command](16))(Keep.right).run()
   streamSource.filter(_.namespace == "").runWith(ActorSink.actorRef(ctx.self,
     EndSession(userCtx.token),
     t => ErrorMessage(userCtx.token, t)
@@ -45,9 +44,9 @@ class SessionManager[U](ctx: ActorContext[Command], userCtx:AuthenticationContex
   }
 
   flowFactories.foreach { f =>
-    val (sink, source) = f.create(userCtx)
-    source.map(outbound(f.namespace)).runWith(streamSink)
-    streamSource.filter(_.namespace == f.namespace).map(inbound).runWith(sink)
+    val flow = f.create(userCtx)
+    flow.map(StreamUtils.loggingFn("WOOZ outbound")).map(outbound(f.namespace)).toMat(streamSink)(Keep.both)
+    streamSource.map(StreamUtils.loggingFn("WOOZ inbound")).filter(_.namespace == f.namespace).map(inbound).viaMat(flow)(Keep.both)
   }
 
   override def onMessage(msg: Command): Behavior[Command] = {

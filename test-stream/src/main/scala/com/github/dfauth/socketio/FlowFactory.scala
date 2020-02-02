@@ -1,9 +1,8 @@
 package com.github.dfauth.socketio
 
-import akka.stream.scaladsl.{Source}
+import akka.stream.scaladsl.{Flow, Source}
 import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.utils.StreamUtils._
-
 import org.apache.avro.specific.SpecificRecordBase
 
 import scala.concurrent.duration._
@@ -32,7 +31,7 @@ case class TestFlowFactory[U](namespace:String, f:()=>Event, delay:FiniteDuratio
   override def create(ctx: AuthenticationContext[U]) = {
     val a = loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: ")
     val b = Source.tick(delay, delay, f).map {g => g() }
-    (a,b)
+    Flow.fromSinkAndSource(a,b)
   }
 }
 
