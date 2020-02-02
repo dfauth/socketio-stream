@@ -11,8 +11,8 @@ import akka.kafka.scaladsl.{Committer, Consumer}
 import akka.kafka._
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, OverflowStrategy}
-import com.github.dfauth.socketio.kafka.{KafkaSink, OffsetAndMetadata, OffsetKey, OffsetKeyDeserializer, OffsetValueDeserializer}
-import com.github.dfauth.socketio.reactivestreams.{QueuePublisher}
+import com.github.dfauth.socketio.kafka.{KafkaSink, OffsetAndMetadata, OffsetKey, OffsetKeyDeserializer, OffsetValueDeserializer, connectionProperties}
+import com.github.dfauth.socketio.reactivestreams.QueuePublisher
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue}
 import com.typesafe.scalalogging.LazyLogging
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}

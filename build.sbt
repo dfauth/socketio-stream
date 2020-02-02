@@ -123,6 +123,7 @@ lazy val kafkaStream = (project in file("kafka-stream"))
 //      scalaJava8
     )
   ).dependsOn(socketioApi, reactivestreams)
+  .enablePlugins()
 
 lazy val testStream = (project in file("test-stream"))
   .settings(commonSettings,

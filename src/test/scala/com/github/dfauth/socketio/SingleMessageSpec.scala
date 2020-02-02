@@ -6,7 +6,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Source}
 import com.github.dfauth.socketio.avro.{SpecificRecordDeserializer, SpecificRecordSerializer}
-import com.github.dfauth.socketio.kafka.KafkaSink
+import com.github.dfauth.socketio.kafka.{KafkaSink, connectionProperties}
 import com.github.dfauth.socketio.reactivestreams.ControllingProcessor
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient

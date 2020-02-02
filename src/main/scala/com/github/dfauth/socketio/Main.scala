@@ -35,13 +35,6 @@ object Main extends App with LazyLogging {
 
   def validator:TokenValidator[User] = t => Success(new UserContextImpl(t, User("fred", Seq("user"))))
 
-  def static =
-    path("") {
-      getFromResource("static/index.html")
-    } ~ pathPrefix("") {
-      getFromResourceDirectory("static")
-    }
-
 }
 
 case class User(name:String, roles:Seq[String] = Seq.empty)

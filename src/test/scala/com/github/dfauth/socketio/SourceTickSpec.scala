@@ -106,13 +106,6 @@ object SocketIOServer1 {
 
     def validator:TokenValidator[User] = t => Success(UserContextImpl(t, User("fred", Seq("user"))))
 
-    def static =
-      path("") {
-        getFromResource("static/index.html")
-      } ~ pathPrefix("") {
-        getFromResourceDirectory("static")
-      }
-
   }
 
 }

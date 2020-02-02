@@ -14,6 +14,7 @@ import com.github.dfauth.socketio.avro.{SpecificRecordDeserializer, SpecificReco
 import com.github.dfauth.socketio.kafka.KafkaSink
 import com.github.dfauth.socketio.reactivestreams.ControllingProcessor
 import com.github.dfauth.socketio.utils.StreamUtils.{secondsOf, tickingSupplyOf}
+import com.github.dfauth.socketio.kafka._
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.{MockSchemaRegistryClient, SchemaRegistryClient}
@@ -162,13 +163,6 @@ object SocketIOServer {
     }.start()
 
     def validator:TokenValidator[User] = t => Success(new UserContextImpl(t, User("fred", Seq("user"))))
-
-    def static =
-      path("") {
-        getFromResource("static/index.html")
-      } ~ pathPrefix("") {
-        getFromResourceDirectory("static")
-      }
 
   }
 
