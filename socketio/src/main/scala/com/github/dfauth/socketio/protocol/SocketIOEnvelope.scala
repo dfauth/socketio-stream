@@ -1,5 +1,6 @@
 package com.github.dfauth.socketio.protocol
 
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio._
 import com.github.dfauth.socketio.actor._
 import com.github.dfauth.socketio.protocol.Connect.{logger, unsupported}

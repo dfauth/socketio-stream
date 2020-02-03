@@ -1,11 +1,12 @@
 package com.github.dfauth.socketio
 
-import akka.stream.scaladsl.{Flow, Source}
 import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.utils.StreamUtils._
 import org.apache.avro.specific.SpecificRecordBase
 
 import scala.concurrent.duration._
+import akka.stream.scaladsl.{Flow, Source}
+import com.github.dfauth.auth.AuthenticationContext
 
 
 case class LongEvent(ackId:Long) extends Event {

@@ -4,8 +4,9 @@ import akka.NotUsed
 import akka.actor.typed.ActorRef
 import akka.actor.typed.receptionist.ServiceKey
 import akka.stream.scaladsl.{Sink, Source}
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.actor.ActorUtils.AskSupport
-import com.github.dfauth.socketio.{Acknowledgement, AuthenticationContext, Event}
+import com.github.dfauth.socketio.{Acknowledgement, Event}
 
 import scala.reflect.ClassTag
 

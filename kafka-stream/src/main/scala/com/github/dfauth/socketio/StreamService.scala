@@ -6,6 +6,7 @@ import akka.kafka.{ConsumerSettings, Subscription}
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.{Done, NotUsed}
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.avro.{SpecificRecordDeserializer, SpecificRecordSerializer}
 import com.github.dfauth.socketio.utils.Functions._
 import com.typesafe.scalalogging.LazyLogging

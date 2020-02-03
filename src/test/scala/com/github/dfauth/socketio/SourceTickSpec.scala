@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Directives.{getFromResource, getFromResourceDir
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.kafka.User
 import com.github.dfauth.socketio.reactivestreams.{ControllingProcessor, Processors}
@@ -42,11 +43,11 @@ class SourceTickSpec extends FlatSpec
     val flowFactories:Seq[FlowFactory[User]] = Seq(
       new FlowFactory[User](){
         override val namespace: String = "/left"
-        override def create(ctx: AuthenticationContext[User]) = Flow.fromSinkAndSource(loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
+        override def create(ctx: AuthenticationContext[User]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcLeft)
       },
       new FlowFactory[User](){
         override val namespace: String = "/right"
-        override def create(ctx: AuthenticationContext[User]) = Flow.fromSinkAndSource(loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
+        override def create(ctx: AuthenticationContext[User]) = (loggingSink[StreamMessage](s"\n\n *** ${namespace} *** \n\n received: "), srcRight)
       }
     )
 
