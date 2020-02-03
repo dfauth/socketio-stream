@@ -7,8 +7,9 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.unmarshalling.{FromRequestUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.actor.{Command, EndSession, ErrorMessage}
-import com.github.dfauth.socketio.{AuthenticationContext, SocketIOConfig}
+import com.github.dfauth.socketio.SocketIOConfig
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol
 

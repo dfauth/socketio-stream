@@ -5,10 +5,11 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.kafka.Subscriptions
 import akka.stream.ActorMaterializer
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.kafka.{KafkaFlowFactory, User}
 import com.typesafe.scalalogging.LazyLogging
-import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient}
+import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration

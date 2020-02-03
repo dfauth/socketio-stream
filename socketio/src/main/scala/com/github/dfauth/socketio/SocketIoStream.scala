@@ -11,6 +11,7 @@ import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.{ByteString, Timeout}
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.actor.ActorUtils._
 import com.github.dfauth.socketio.actor._
 import com.github.dfauth.socketio.reactivestreams.Processors._

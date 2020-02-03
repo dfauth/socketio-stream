@@ -79,7 +79,7 @@ lazy val socketioApi = (project in file("socketio-api"))
       akkaActor,
       akkaStream
     )
-  )
+  ).dependsOn(authentication)
 
 lazy val socketio = (project in file("socketio"))
   .settings(commonSettings,
@@ -109,7 +109,7 @@ lazy val kafkaStream = (project in file("kafka-stream"))
       jodaTime,
       avro,
     )
-  ).dependsOn(socketioApi, reactivestreams)
+  ).dependsOn(socketioApi, reactivestreams, authentication)
   .enablePlugins()
 
 lazy val testStream = (project in file("test-stream"))
@@ -117,7 +117,7 @@ lazy val testStream = (project in file("test-stream"))
     name := "test-stream",
     libraryDependencies ++= commonScalaDeps ++ Seq(
     )
-  ).dependsOn(socketio, reactivestreams)
+  ).dependsOn(socketio, reactivestreams, authentication)
 
 lazy val socketioStream = (project in file("."))
   .settings(

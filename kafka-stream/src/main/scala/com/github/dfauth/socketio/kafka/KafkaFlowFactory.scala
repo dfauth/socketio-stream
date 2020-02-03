@@ -9,8 +9,9 @@ import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Committer
 import akka.kafka.{CommitterSettings, Subscription}
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.reactivestreams.{CompositeProcessor, QueueSubscriber}
-import com.github.dfauth.socketio.{Acknowledgement, AuthenticationContext, CommittableKafkaContext, FlowFactory, KafkaStreamConfig, StreamMessage, StreamService}
+import com.github.dfauth.socketio.{Acknowledgement, CommittableKafkaContext, FlowFactory, KafkaStreamConfig, StreamMessage, StreamService}
 import com.github.dfauth.socketio.reactivestreams.QueuePublisher
 import com.github.dfauth.socketio.utils.StreamUtils.loggingFn
 import com.github.dfauth.socketio.utils.{Ackker, FilteringQueue}

@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Directives.{getFromResource, getFromResourceDir
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.SocketIoStream.TokenValidator
 import com.github.dfauth.socketio.kafka.User
 import com.github.dfauth.socketio.reactivestreams.{ControllingProcessor, Processors}

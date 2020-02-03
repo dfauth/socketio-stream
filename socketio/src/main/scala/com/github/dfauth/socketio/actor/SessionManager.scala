@@ -3,9 +3,10 @@ package com.github.dfauth.socketio.actor
 import akka.NotUsed
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.actor.typed.{Behavior, PostStop, Signal}
-import akka.stream.{Materializer}
+import akka.stream.Materializer
 import akka.stream.scaladsl.{BroadcastHub, Flow, Keep, MergeHub, Sink, Source}
 import akka.stream.typed.scaladsl.ActorSink
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio
 import com.github.dfauth.socketio.reactivestreams.Processors._
 import com.github.dfauth.socketio._

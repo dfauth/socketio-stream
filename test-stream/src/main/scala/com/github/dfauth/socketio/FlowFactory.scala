@@ -1,9 +1,9 @@
 package com.github.dfauth.socketio
 
-import akka.stream.scaladsl.{Source}
+import akka.stream.scaladsl.Source
+import com.github.dfauth.auth.AuthenticationContext
 import com.github.dfauth.socketio.avro.AvroUtils
 import com.github.dfauth.socketio.utils.StreamUtils._
-
 import org.apache.avro.specific.SpecificRecordBase
 
 import scala.concurrent.duration._
