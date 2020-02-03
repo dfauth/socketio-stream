@@ -1,5 +1,6 @@
 package com.github.dfauth.socketio;
 
+import com.github.dfauth.auth.AuthenticationContext;
 import org.reactivestreams.Processor;
 
 public interface ProcessorFactory<U> {
